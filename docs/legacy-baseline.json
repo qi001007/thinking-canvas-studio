@@ -1,0 +1,42 @@
+{
+  "verifiedOn": "2026-10-23",
+  "root": "E:\\算法思考工具",
+  "branch": "main",
+  "head": "9a4c1563e28679c1c54a57b5327d89f22d0a50ca",
+  "releaseTag": "v0.3.9",
+  "releaseCommit": "a1880adba9b9676eb807e2ae9eae28a18094d2b3",
+  "workingTreeClean": true,
+  "files": [
+    {
+      "path": "package.json",
+      "bytes": 328,
+      "sha256": "00beb34941164587d7c6e89f99b2112c3c464d6733e98c0e82fcca019e87e448"
+    },
+    {
+      "path": "web\\css\\tokens.css",
+      "bytes": 1207,
+      "sha256": "d2d04c766de6f373a85cb728a2033b9ab0cd2db7179d0aae7879ce77fb3f182a"
+    },
+    {
+      "path": "docs\\前端设计规范.md",
+      "bytes": 3318,
+      "sha256": "45ddff57d02730e0d3974d90d438226dd9f2cb9f2d7481ea874ddafd74f6e621"
+    },
+    {
+      "path": "ThinkingCanvas.exe",
+      "bytes": 12870985,
+      "sha256": "29d95b4f2722d17f5bc998decb33a9ce7b436434873c70ab3d86506e1fc4b3f3"
+    },
+    {
+      "path": "boards\\board-be4ba8fa.tcanvas.json",
+      "bytes": 9930,
+      "sha256": "ae8dbbc7372964cedee199d88564750bbb7c613a3f71ba2a71e4a0308810bf5f"
+    },
+    {
+      "path": "boards\\README.md",
+      "bytes": 430,
+      "sha256": "3b7b2c0ed5c70d15021ae22ccb38a0fbaf6ed9e409501547825938cb8527b883"
+    }
+  ],
+  "note": "Hashes only. No user board contents copied. Original files must remain unchanged."
+}

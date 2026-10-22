@@ -1,0 +1,393 @@
+{
+  "repository": "microsoft/vscode",
+  "ref": "c024bfb636e6db359ca29775b88c819866c84863",
+  "retrievedOn": "2026-10-23",
+  "method": "GitHub MCP directory enumeration and focused file reads; no vector index or copied workbench",
+  "coverage": "Browser directory enumerated. Focused files read in relevant sections, not every line. Other entries indexed only.",
+  "common": [
+    {
+      "path": "src/vs/workbench/contrib/debug/common/debug.ts",
+      "status": "focused-sections-read",
+      "anchor": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/common/debug.ts#L180"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/common/debugModel.ts",
+      "status": "focused-sections-read",
+      "anchor": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/common/debugModel.ts#L37"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/common/debugViewModel.ts",
+      "status": "focused-sections-read",
+      "anchor": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/common/debugViewModel.ts#L83"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/common/debugProtocol.d.ts",
+      "status": "focused-sections-read",
+      "anchor": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/common/debugProtocol.d.ts#L1168"
+    }
+  ],
+  "browser": [
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/baseDebugView.ts",
+      "blobSha": "efb22ae81c13d9611db02788bc7bb74740882427",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/baseDebugView.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/breakpointEditorContribution.ts",
+      "blobSha": "a4b9d2ea45585f5afb21710e25c75e495b160f9b",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/breakpointEditorContribution.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/breakpointWidget.ts",
+      "blobSha": "82e2e558c6636a193722b02a9a785f3ae9fb1a74",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/breakpointWidget.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/breakpointsView.ts",
+      "blobSha": "d6dec6a1cf0f35c5ee9b1afb76d4dc8ef6909e38",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/breakpointsView.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/callStackEditorContribution.ts",
+      "blobSha": "cc2513d24a37d33862f1768d8ae7f6aa122c59ec",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/callStackEditorContribution.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/callStackView.ts",
+      "blobSha": "5fb4b6fbbd605e2d6b0d9b57bcaff6d6fc587524",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/callStackView.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/callStackWidget.ts",
+      "blobSha": "42e4cbebafe991204e7fd7341a5d7c72bbdcb4db",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/callStackWidget.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debug.contribution.ts",
+      "blobSha": "2b745000cb14765c5570946f31040ee172ffc2af",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debug.contribution.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debug.service.contribution.ts",
+      "blobSha": "93038daa11fc4eaa7423c19b7186708cd0d3e706",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debug.service.contribution.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugANSIHandling.ts",
+      "blobSha": "85c117bc20267e15475e734509e96d6549b01da7",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugANSIHandling.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugActionViewItems.ts",
+      "blobSha": "f388979966b2729a7c9abbfbe184be15d565106e",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugActionViewItems.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugAdapterManager.ts",
+      "blobSha": "0b9ced32f77e97b03476fa39487e7b55382c6bcf",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugAdapterManager.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugChatIntegration.ts",
+      "blobSha": "726f0683fab06184ddb6e8f8a359455319913b51",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugChatIntegration.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugColors.ts",
+      "blobSha": "9b3556c236a3ee71a3eaae7fa4a976398f71966c",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugColors.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugCommands.ts",
+      "blobSha": "d98d14bcdb6ddc9c92129a257fbb0bbe97c8a34c",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugCommands.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugConfigurationManager.ts",
+      "blobSha": "fac3f4369701c529b2a644aa74b95aaffcc9fba8",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugConfigurationManager.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugConsoleQuickAccess.ts",
+      "blobSha": "07bbe095738b5336139f4f876411b970df710571",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugConsoleQuickAccess.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugEditorActions.ts",
+      "blobSha": "3e67ae929f45646d3958869723130d826c23147a",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugEditorActions.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugEditorContribution.ts",
+      "blobSha": "48e3c89d7cf8e869b990d520c3602bb4f5e038ed",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugEditorContribution.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugExpressionRenderer.ts",
+      "blobSha": "3009f58a2cb0105abfffb4aa0cebc7baffe4f7da",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugExpressionRenderer.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugHover.ts",
+      "blobSha": "fe8ae2b6ab0a1f699866776efd1461e36aa9806e",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugHover.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugIcons.ts",
+      "blobSha": "eba9f915c37f213013225cc92bdd0848878eaa66",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugIcons.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugMemory.ts",
+      "blobSha": "9a916b29f398a0c94935e961d4d6dadb11f60d88",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugMemory.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugProgress.ts",
+      "blobSha": "0cca619bf967e2fac5b30ecba612a9e81ec6d57c",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugProgress.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugQuickAccess.ts",
+      "blobSha": "3b12ce54af44278d20a1403be424c4c64e816d8b",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugQuickAccess.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugService.ts",
+      "blobSha": "d7bac98d243f7814286c6fdcc2ba636f77cb9a72",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugService.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugSession.ts",
+      "blobSha": "e73770edbc1fd756fe47e95b59e2279edf86242b",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugSession.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugSessionPicker.ts",
+      "blobSha": "d6c6e952b842e9dfbe69abf2e7e253f2a00dc3b5",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugSessionPicker.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugSettingMigration.ts",
+      "blobSha": "6b87017f98de0aef9584f59264975e92cc08d605",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugSettingMigration.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugStatus.ts",
+      "blobSha": "c98e63ab7b7a9cdf84d26163eebaeca0d5f593f0",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugStatus.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugTaskRunner.ts",
+      "blobSha": "57d4ad3e8c4ca3b7206822e0c114971f1aa76462",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugTaskRunner.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugTitle.ts",
+      "blobSha": "f4e223fb46b07a526649d2e20d1bf6b1387c676a",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugTitle.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugToolBar.ts",
+      "blobSha": "1470fed4d7e468e677138b3e3cc7ea372591f08b",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugToolBar.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/debugViewlet.ts",
+      "blobSha": "10b8d244b2e8a6dda002068d3b7304265f71755c",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/debugViewlet.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/disassemblyView.ts",
+      "blobSha": "9d2e8180f631f2f1f3554cc63d000a2ab93b3de8",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/disassemblyView.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/exceptionWidget.ts",
+      "blobSha": "0c0d408619575b976a17444afcd49aadc037552d",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/exceptionWidget.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/extensionHostDebugService.ts",
+      "blobSha": "1e48c939054552d613a4802dee370ba968be6a28",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/extensionHostDebugService.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/linkDetector.ts",
+      "blobSha": "022f9ca88c9450c7fbee8854f1ad451f8c052fa2",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/linkDetector.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/loadedScriptsView.ts",
+      "blobSha": "531c1146f97283163f98cfdeae22ee84e6114004",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/loadedScriptsView.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/media",
+      "blobSha": "94ba4f6f742bac57488a722c1aec9522200d458f",
+      "type": "dir",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/tree/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/media"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/rawDebugSession.ts",
+      "blobSha": "0c0e9e536532810274599db845a5c252fcbb7034",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/rawDebugSession.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/repl.ts",
+      "blobSha": "71605eddcf4ba5b858abf29f787f0793159561c5",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/repl.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/replAccessibilityHelp.ts",
+      "blobSha": "545ca609110acfdf5a79c673d36417dad80e8f32",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/replAccessibilityHelp.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/replAccessibleView.ts",
+      "blobSha": "638dd70b513d3a66a5807d1eaa0a4cbce1e01dbe",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/replAccessibleView.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/replFilter.ts",
+      "blobSha": "9970017a8831a8aafe936a4c2db1e27c86c800e3",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/replFilter.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/replViewer.ts",
+      "blobSha": "ca2d6da347ce49cc0a891e8e0cd5587239e1bb4e",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/replViewer.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/runAndDebugAccessibilityHelp.ts",
+      "blobSha": "fcdf564b93c05ef43b8863f4715ef3b28beb800c",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/runAndDebugAccessibilityHelp.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/statusbarColorProvider.ts",
+      "blobSha": "48f8f422308c1eba5221feda083e30fc1589fb06",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/statusbarColorProvider.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/variablesView.ts",
+      "blobSha": "f18d41bf23c16eced817a641ceab47dd170c43b9",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/variablesView.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/watchExpressionsView.ts",
+      "blobSha": "9fef1481a40a200bc627f087c0178d4e0150fbcc",
+      "type": "file",
+      "status": "focused-sections-read",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/watchExpressionsView.ts"
+    },
+    {
+      "path": "src/vs/workbench/contrib/debug/browser/welcomeView.ts",
+      "blobSha": "32a641f082c3180a1c0479589699193020bec4b0",
+      "type": "file",
+      "status": "directory-index-only",
+      "url": "https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/src/vs/workbench/contrib/debug/browser/welcomeView.ts"
+    }
+  ],
+  "corrections": [
+    "Exception implementation is exceptionWidget.ts; no debugExceptionWidget.ts at this ref.",
+    "Inline values are implemented in debugEditorContribution.ts.",
+    "debugMemory.ts is a virtual filesystem integration, not a standalone full memory UI."
+  ]
+}

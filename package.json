@@ -1,0 +1,12 @@
+{
+  "name": "thinking-canvas-studio-foundation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types frontend/tests/foundation.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

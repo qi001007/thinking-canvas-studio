@@ -1,0 +1,21 @@
+# Dependencies / generated data
+node_modules/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+*.egg-info/
+dist/
+build/
+coverage/
+.test-build/
+*.log
+
+# Private runtime / project data
+.studio-local/
+*.trace.jsonl
+*.trace.bin
+*.grant
+.env
+.env.*
+!.env.example
