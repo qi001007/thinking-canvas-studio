@@ -482,3 +482,12 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+.canvas-card {
+	transition: left 0.16s ease, top 0.16s ease, border-color 0.14s, box-shadow 0.14s;
+}
+
+.canvas-cell,
+.canvas-item {
+	transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}

@@ -4,7 +4,7 @@ interface TopbarProps {
 	readonly state: StudioState;
 	readonly onMode: (mode: StudioMode) => void;
 	readonly onStart: () => void;
-	readonly onStartReal: () => void;
+	readonly onStartReal: (mode: 'debug' | 'record') => void;
 	readonly onContinue: () => void;
 	readonly onStep: (kind: 'over' | 'into' | 'out') => void;
 	readonly onStop: () => void;
@@ -45,11 +45,16 @@ export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep
 				{state.mode === 'debug' && !hasSession && (
 					<>
 						{state.hostMode === 'desktop' && (
-							<button type="button" className="btn btn-primary" onClick={onStartReal} disabled={state.running} title="debugpy + Windows Job Object；会弹出原生确认">
-								<span className="run-triangle" /> 真实运行
-							</button>
+							<>
+								<button type="button" className="btn btn-primary" onClick={() => onStartReal('record')} disabled={state.running} title="自动记录每一行，最多 500 帧；会弹出原生确认">
+									<span className="run-triangle" /> 完整运行
+								</button>
+								<button type="button" className="btn" onClick={() => onStartReal('debug')} disabled={state.running} title="只停在断点；可步进/继续">
+									调试运行
+								</button>
+							</>
 						)}
-						<button type="button" className={state.hostMode === 'desktop' ? 'btn' : 'btn btn-primary'} onClick={onStart} disabled={state.running}>
+						<button type="button" className={state.hostMode === 'desktop' ? 'btn btn-quiet' : 'btn btn-primary'} onClick={onStart} disabled={state.running}>
 							运行演示
 						</button>
 					</>
@@ -68,7 +73,7 @@ export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep
 				{state.mode === 'manual' && <span className="manual-mode-note">手绘模式 · 自动保存</span>}
 				<button type="button" className="btn btn-quiet" onClick={onSave} disabled={!dirty} title="保存文件">保存</button>
 				{state.session?.scripted && <span className="demo-badge" title="脚本化数据；未执行用户代码">脚本演示</span>}
-				{state.session && !state.session.scripted && <span className="live-badge">真实调试</span>}
+				{state.session && !state.session.scripted && state.debug.sessionState !== 'ended' && <span className="live-badge">{state.session.mode === 'record' ? '记录中' : '真实调试'}</span>}
 			</div>
 		</header>
 	);

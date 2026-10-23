@@ -1458,3 +1458,35 @@ button {
 .timeline-current > span.is-live {
 	color: var(--green);
 }
+
+.timeline-playback {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+
+.timeline-play {
+	height: 24px;
+	padding: 0 8px;
+	border: 1px solid var(--line-strong);
+	border-radius: 6px;
+	background: var(--surface);
+	color: var(--ink-soft);
+	font-size: 9px;
+	cursor: pointer;
+}
+
+.timeline-play:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+.timeline-playback select {
+	height: 24px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--surface);
+	color: var(--muted);
+	font-size: 9px;
+}

@@ -54,10 +54,11 @@ class DesktopApi:
             return {"approved": False, "error": "invalid request"}
         program = request.get("program")
         breakpoints = request.get("breakpoints", [])
-        if not isinstance(program, str) or not isinstance(breakpoints, list):
-            return {"approved": False, "error": "invalid program or breakpoints"}
+        mode = request.get("mode", "debug")
+        if not isinstance(program, str) or not isinstance(breakpoints, list) or mode not in {"debug", "record"}:
+            return {"approved": False, "error": "invalid program, breakpoints, or mode"}
         try:
-            prepared = self._service.prepare_run(program, breakpoints)
+            prepared = self._service.prepare_run(program, breakpoints, mode)
         except Exception as exc:
             return {"approved": False, "error": str(exc)}
         import webview
@@ -80,7 +81,7 @@ class DesktopApi:
         if not window.create_confirmation_dialog("确认运行真实代码", message):
             return {"approved": False}
         try:
-            return self._service.issue_run_approval(program, breakpoints)
+            return self._service.issue_run_approval(program, breakpoints, mode)
         except Exception as exc:
             return {"approved": False, "error": str(exc)}
 

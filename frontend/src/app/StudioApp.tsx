@@ -70,7 +70,7 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 				state={state}
 				onMode={setMode}
 				onStart={() => void store.startDebug()}
-				onStartReal={() => void store.startRealDebug()}
+				onStartReal={mode => void store.startRealDebug(mode)}
 				onContinue={() => void store.continueDebug()}
 				onStep={kind => void store.stepDebug(kind)}
 				onStop={() => void store.stopDebug()}
@@ -174,6 +174,8 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 						onSelectManualStep={index => store.selectManualStep(index)}
 						onBackToLive={backToLive}
 						onRecordStep={() => store.recordManualStep()}
+						onTogglePlayback={() => store.togglePlayback()}
+						onSpeedChange={speed => store.setPlaybackSpeed(speed)}
 					/>
 				</main>
 				{!(state.mode === 'debug' && state.canvasView === 'static') && (

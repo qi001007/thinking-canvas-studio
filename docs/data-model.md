@@ -69,6 +69,14 @@ TraceSnapshot {
 - `coverage` 为 `complete` / `partial` / `unknown`；预算/深度/分页命中要写 `knownMissing`。
 - 时间线保存暂停快照；不把“继续运行期间没有采样到”伪造成连续动画。
 
+## 完整运行与帧
+
+- `mode: record`：host 从源文件 AST 提取可执行行（最多 400 个断点），RealDebugService 自动设置断点、逐次 `continue`，每次 stopped 采集一帧。
+- 帧上限 500（host 与 UI 双重限制）；超出后停止并保留已有帧，界面显示保留/丢弃数。
+- 帧标签 `第 n 帧 · 行 x`；帧轴可拖动、播放/暂停、0.25–4× 调速。
+- 回放只切换已捕获的 `TraceSnapshot`；不重新执行目标，不是逆向执行。
+- 跨文件调用的被调函数不自动逐行记录；栈帧仍可见。
+
 ## 投影与差异
 
 - `projectSnapshot` 把 `NormalizedDebugSnapshot` 或 `TraceSnapshot` 转为 `SceneDto`。
@@ -110,7 +118,7 @@ workspace/
 | `workbench.create/info/read/write` | 创建/读取/保存函数工作台 |
 | `analysis.analyze` | 分析工作台/源文件并返回静态 Scene |
 | `debug.start` | 启动脚本演示 |
-| `debug.startReal` | 用单次 approval receipt 启动真实 debugpy；可运行工作台 |
+| `debug.startReal` | 用单次 approval receipt 启动真实 debugpy；`mode: debug/record`；可运行工作台 |
 | `debug.stop/continue/step/pause` | 会话控制 |
 | `debug.stackFrames/scopes/variables` | 缓存/懒加载读取 |
 

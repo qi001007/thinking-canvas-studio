@@ -106,6 +106,7 @@ export class WebSocketHostClient implements HostClient {
 			receiptId: request.receiptId,
 			program: request.program,
 			breakpoints: [...request.breakpoints],
+			mode: request.mode,
 		});
 	}
 

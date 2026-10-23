@@ -10,7 +10,7 @@ interface RunApproval {
 
 interface DesktopBridgeApi {
 	bridge_info(): Promise<BridgeInfo>;
-	approve_run(request: { readonly program: string; readonly breakpoints: readonly number[] }): Promise<RunApproval>;
+	approve_run(request: { readonly program: string; readonly breakpoints: readonly number[]; readonly mode: 'debug' | 'record' }): Promise<RunApproval>;
 }
 
 declare global {

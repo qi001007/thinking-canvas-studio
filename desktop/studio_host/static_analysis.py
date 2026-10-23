@@ -102,6 +102,7 @@ class StaticAnalyzer:
                 "classes": sum(1 for node in self.nodes.values() if node.get("card", {}).get("kind") == "class"),
             },
             "sourceFile": self.source_rel,
+            "traceLines": executable_lines(self.workbench_source),
             "origin": "static",
         }
 
@@ -630,6 +631,35 @@ class StaticAnalyzer:
             "kind": kind,
             "label": label,
         }
+
+
+def executable_lines(source: str) -> list[int]:
+    """Executable statement starts for auto-recording; excludes headers/imports/docstrings."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+    context_end = _context_end_line(source)
+    lines: set[int] = set()
+    skipped = (
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.ClassDef,
+        ast.Import,
+        ast.ImportFrom,
+        ast.Pass,
+        ast.Global,
+        ast.Nonlocal,
+    )
+    for node in ast.walk(tree):
+        if isinstance(node, skipped):
+            continue
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            continue
+        line = getattr(node, "lineno", None)
+        if isinstance(line, int) and line > context_end:
+            lines.add(line)
+    return sorted(lines)
 
 
 def _index_source(tree: ast.Module) -> SourceIndex:

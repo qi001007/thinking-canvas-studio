@@ -17,7 +17,8 @@ interface InspectorProps {
 export function Inspector({ state, onSelectFrame, onToggleBreakpoint, onRemoveBreakpoint, onDeleteNode }: InspectorProps) {
 	const [tab, setTab] = useState<InspectorTab>('variables');
 	const snapshot = currentSnapshot(state);
-	const isHistory = state.snapshotIndex >= 0 && !!snapshot;
+	const endedRecord = state.debug.sessionState === 'ended' && !!snapshot;
+	const isHistory = (state.snapshotIndex >= 0 || endedRecord) && !!snapshot;
 	const frames = isHistory && snapshot ? snapshot.frames : Object.values(state.debug.threads).flatMap(thread => thread.frames);
 	const selected = frames.find(frame => frame.id === state.selectedFrameId) ?? frames[0];
 	const selectedObject = state.manualBoard.scene.nodes.find(node => node.id === state.selectedNodeId);

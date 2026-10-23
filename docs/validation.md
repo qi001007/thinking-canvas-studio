@@ -8,7 +8,7 @@
 |---|---|---|
 | `npm run typecheck` | 通过 | React/TS/Monaco 严格类型检查 |
 | `npm test` | 19 项通过 | 生命周期、投影、卡片、单元格 diff、手绘步骤、预算 |
-| `python -m unittest discover -s desktop/studio_host/tests -t desktop -v` | 53 项通过 | 策略、DAP 帧、桥、工作区、语言包、脚本 DAP、WS、真实 debugpy、Job Object 超时、静态分析/工作台 |
+| `python -m unittest discover -s desktop/studio_host/tests -t desktop -v` | 54 项通过 | 策略、DAP 帧、桥、工作区、语言包、脚本 DAP、WS、真实 debugpy、Job Object 超时、静态分析/工作台、自动记录 |
 | `npm run build` | 通过 | Monaco 主包约 3.0 MB，gzip 约 0.8 MB |
 | `python desktop/app.py --smoke` | 通过 | 桥端口、工作区 3 个文件、app.info |
 | 浏览器 1680×1050（无头 Edge + CDP） | 通过 | Monaco、卡片、变量树、时间线、步过差异、手绘加卡/记录 |
@@ -17,6 +17,8 @@
 | 真实 debugpy | 通过 | fixture 断点、locals、list 子项、单步 total 0→1、停止清理；Job Object 限额；真实 UI 步过后 `seen={5:0}`、行 7→8 |
 | 函数工作台 + 静态结构 | 通过 | 干净工作台 2 个静态节点；保存 `TensorPath` 类后 12 节点/20 关系；类/字段/方法/参数/循环/调用出现 |
 | 帧轴时间线 | 通过 | Demo 步过后 2 帧、滑块当前值 1；500 帧上限 |
+| 完整运行记录 | 通过 | fixture 自动记录 12 帧，包含循环行 3/4、函数行 2/5、测试行 8/9；自动继续到结束 |
+| 回放 | 通过 | 时间线播放按钮从帧 0 开始，1.2 秒后滑块移动、暂停可用；速度选项 0.5–4× |
 | Job Object wall timeout | 通过 | 1 秒限额终止目标；测试使用自含 fixture |
 | GDB/JS/Java | 未执行 | 只有语言 manifest；每种语言单独验收 |
 | 用户代码执行 | 未执行 | 脚本化适配器；没有启动目标进程 |
@@ -42,4 +44,4 @@
 
 ## 发布声明边界
 
-可声明：**Python 工作台 + AST 静态结构图 + 真实 debugpy 调试在 Windows Job Object 限额下可用；底座、脚本演示与桥均经测试。** 不可声明：C/C++/TS/Java 调试已可用、IME/DPI 已验收、完整内存/张量追踪、文件/网络沙箱已实现。
+可声明：**Python 工作台 + AST 静态结构图 + 真实 debugpy 调试 + 完整运行记录/回放在 Windows Job Object 限额下可用；底座、脚本演示与桥均经测试。** 不可声明：C/C++/TS/Java 调试已可用、IME/DPI 已验收、完整内存/张量追踪、文件/网络沙箱已实现、自动记录覆盖跨文件调用。

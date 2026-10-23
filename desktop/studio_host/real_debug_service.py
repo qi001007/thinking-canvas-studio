@@ -47,6 +47,8 @@ class RealDebugService:
         self._initialized = asyncio.Event()
         self._lock: asyncio.Lock | None = None
         self._capabilities: dict[str, Any] = {}
+        self._record_mode = False
+        self._max_frames = 500
 
     @property
     def running(self) -> bool:
@@ -58,6 +60,9 @@ class RealDebugService:
         *,
         program: str,
         breakpoints: list[int],
+        auto_record: bool = False,
+        trace_lines: list[int] | None = None,
+        max_frames: int = 500,
     ) -> dict[str, Any]:
         if self._lock is None:
             self._lock = asyncio.Lock()
@@ -78,6 +83,11 @@ class RealDebugService:
             self._missing.clear()
             self._initialized = asyncio.Event()
             self._capabilities = {}
+            self._record_mode = auto_record
+            self._max_frames = max(1, min(max_frames, 500))
+            trace_breakpoints = list(trace_lines or []) if auto_record else list(breakpoints)
+            if auto_record and not trace_breakpoints:
+                raise RealDebugError("完整运行没有可记录的可执行行")
             self._session = DapSession(transport, on_event=self._on_dap_event, request_timeout=15.0)
             try:
                 capabilities = await self._session.initialize(client_id="thinking-canvas-studio", adapter_id="debugpy")
@@ -94,7 +104,7 @@ class RealDebugService:
                     "setBreakpoints",
                     {
                         "source": {"path": str(Path(program).resolve())},
-                        "breakpoints": [{"line": line} for line in sorted(set(breakpoints)) if line > 0],
+                        "breakpoints": [{"line": line} for line in sorted(set(trace_breakpoints)) if line > 0],
                         "sourceModified": False,
                     },
                 )
@@ -107,6 +117,7 @@ class RealDebugService:
                     "threadId": self._thread_id,
                     "capabilities": _normalized_capabilities(capabilities),
                     "scripted": False,
+                    "mode": "record" if auto_record else "debug",
                 }
             except Exception as exc:
                 await self._abort()
@@ -209,12 +220,19 @@ class RealDebugService:
                 "allThreadsStopped": bool(body.get("allThreadsStopped", True)),
             })
             await self._capture(label)
+            if self._record_mode and self._running:
+                if self._stop_count >= self._max_frames:
+                    await self._console(f"记录达到 {self._max_frames} 帧上限，停止。")
+                    await self.stop()
+                else:
+                    await self._advance("continue")
             return
         if event in {"terminated", "exited"}:
             if self._running:
                 self._running = False
                 self._paused = False
                 await self._emit({"type": "runEnded", "runId": self._run_id, "sessionId": self._session_id})
+                asyncio.create_task(self._cleanup_after_terminate())
             return
         if event == "output":
             if body.get("category") == "telemetry":
@@ -274,6 +292,8 @@ class RealDebugService:
                 })
             self._last_frames = frames
             coverage = "partial" if self._missing else "complete"
+            line = frames[0].get("line") if frames else "—"
+            display_label = f"第 {self._stop_count} 帧 · 行 {line}" if self._record_mode else label
             await self._emit({
                 "type": "framesLoaded",
                 "runId": self._run_id,
@@ -281,15 +301,14 @@ class RealDebugService:
                 "threadId": self._thread_id,
                 "stopEpoch": self._epoch,
                 "frames": frames,
-                "label": label,
+                "label": display_label,
                 "coverage": {
                     "state": coverage,
                     "reason": "Variable budget reached." if self._missing else None,
                     "knownMissing": sorted(self._missing),
                 },
             })
-            line = frames[0].get("line") if frames else "—"
-            prefix = label if label.startswith("停点 ") else f"停点 {self._stop_count}: {label}"
+            prefix = display_label if self._record_mode else (label if label.startswith("停点 ") else f"停点 {self._stop_count}: {label}")
             await self._console(f"{prefix} · main.py:{line}", "stdout")
         except DapSessionError as exc:
             await self._console(f"采集失败：{exc}", "error")
@@ -358,6 +377,19 @@ class RealDebugService:
                 "children": children,
             })
         return values
+
+    async def _cleanup_after_terminate(self) -> None:
+        session = self._session
+        transport = self._transport
+        self._session = None
+        self._transport = None
+        self._running = False
+        self._paused = False
+        self._record_mode = False
+        if session is not None:
+            await session.close()
+        if transport is not None:
+            await self._supervisor.terminate(transport)
 
     async def _abort(self) -> None:
         session = self._session

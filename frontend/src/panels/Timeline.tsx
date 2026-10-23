@@ -10,6 +10,8 @@ interface TimelineProps {
 	readonly onSelectManualStep: (index: number) => void;
 	readonly onBackToLive: () => void;
 	readonly onRecordStep: () => void;
+	readonly onTogglePlayback: () => void;
+	readonly onSpeedChange: (speed: number) => void;
 }
 
 interface TimelineEntry {
@@ -18,7 +20,7 @@ interface TimelineEntry {
 	readonly changes: number;
 }
 
-export function Timeline({ state, onSelectSnapshot, onSelectManualStep, onBackToLive, onRecordStep }: TimelineProps) {
+export function Timeline({ state, onSelectSnapshot, onSelectManualStep, onBackToLive, onRecordStep, onTogglePlayback, onSpeedChange }: TimelineProps) {
 	const entries = useMemo<TimelineEntry[]>(() => {
 		if (state.mode === 'manual') {
 			let previous: SceneDto | undefined;
@@ -67,6 +69,19 @@ export function Timeline({ state, onSelectSnapshot, onSelectManualStep, onBackTo
 			</div>
 			<div className="timeline-track">
 				<button type="button" className="timeline-arrow" disabled={entries.length === 0 || currentIndex === 0} onClick={() => step(-1)} aria-label="上一帧">‹</button>
+				{state.mode === 'debug' && (
+					<div className="timeline-playback">
+						<button type="button" className="timeline-play" onClick={onTogglePlayback} disabled={state.running || entries.length < 2}>
+							{state.playback.playing ? '暂停' : '播放'}
+						</button>
+						<select value={state.playback.speed} onChange={event => onSpeedChange(Number(event.target.value))} disabled={entries.length < 2} aria-label="播放速度">
+							<option value={0.5}>0.5×</option>
+							<option value={1}>1×</option>
+							<option value={2}>2×</option>
+							<option value={4}>4×</option>
+						</select>
+					</div>
+				)}
 				<div className="timeline-scrubber">
 					<input
 						type="range"

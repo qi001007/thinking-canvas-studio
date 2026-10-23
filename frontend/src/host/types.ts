@@ -43,6 +43,7 @@ export interface RealRunRequest {
 	readonly receiptId: string;
 	readonly program: string;
 	readonly breakpoints: readonly number[];
+	readonly mode: 'debug' | 'record';
 }
 
 export interface WorkbenchInfo {

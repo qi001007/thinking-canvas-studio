@@ -30,6 +30,12 @@ export interface StudioSession {
 	readonly threadId: string;
 	readonly capabilities: CapabilitySet;
 	readonly scripted: boolean;
+	readonly mode?: 'debug' | 'record';
+}
+
+export interface PlaybackState {
+	readonly playing: boolean;
+	readonly speed: number;
 }
 
 export interface StudioState {
@@ -59,6 +65,7 @@ export interface StudioState {
 	readonly droppedSnapshots: number;
 	readonly snapshotIndex: number;
 	readonly running: boolean;
+	readonly playback: PlaybackState;
 	readonly breakpoints: readonly Breakpoint[];
 	readonly console: readonly ConsoleLine[];
 	readonly status: string;
@@ -109,6 +116,7 @@ export function initialState(): StudioState {
 		droppedSnapshots: 0,
 		snapshotIndex: -1,
 		running: false,
+		playback: { playing: false, speed: 1 },
 		breakpoints: [],
 		console: [],
 		status: '正在连接宿主…',
@@ -122,6 +130,7 @@ export class StudioStore {
 	private state = initialState();
 	private readonly listeners = new Set<() => void>();
 	private readonly unsubscribers: Array<() => void> = [];
+	private playbackTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(private readonly host: HostClient) {}
 
@@ -175,6 +184,7 @@ export class StudioStore {
 	}
 
 	dispose(): void {
+		this.stopPlayback();
 		for (const unsubscribe of this.unsubscribers) unsubscribe();
 		this.host.dispose?.();
 		this.unsubscribers.length = 0;
@@ -183,6 +193,7 @@ export class StudioStore {
 
 	async startDebug(): Promise<void> {
 		if (this.state.running) return;
+		this.stopPlayback();
 		this.set({ mode: 'debug', running: true, snapshots: [], droppedSnapshots: 0, snapshotIndex: -1, status: '正在启动演示会话…' });
 		try {
 			const session = await this.host.startDebug();
@@ -192,7 +203,7 @@ export class StudioStore {
 		}
 	}
 
-	async startRealDebug(): Promise<void> {
+	async startRealDebug(mode: 'debug' | 'record' = 'debug'): Promise<void> {
 		if (this.state.hostMode !== 'desktop') {
 			this.set({ status: '真实调试只在桌面窗口可用；浏览器预览使用脚本演示。' });
 			return;
@@ -203,6 +214,7 @@ export class StudioStore {
 			return;
 		}
 		if (this.state.running) return;
+		this.stopPlayback();
 		const program = this.state.activeFile;
 		if (this.state.editorText !== this.state.savedText) {
 			await this.saveFile();
@@ -225,7 +237,7 @@ export class StudioStore {
 			status: '等待原生确认…'
 		});
 		try {
-			const approval = await api.approve_run({ program, breakpoints });
+			const approval = await api.approve_run({ program, breakpoints, mode });
 			if (!approval.approved || !approval.receiptId) {
 				this.set({ running: false, status: approval.error ? `未运行：${approval.error}` : '已取消真实运行' });
 				return;
@@ -233,13 +245,17 @@ export class StudioStore {
 			const session = await this.host.startRealDebug({
 				receiptId: approval.receiptId,
 				program,
-				breakpoints
+				breakpoints,
+				mode
 			});
+			const ended = this.state.debug.sessionState === 'ended';
 			this.set({
-				session: { ...session, scripted: false },
-				running: true,
+				session: { ...session, scripted: false, mode },
+				running: !ended,
 				mode: 'debug',
-				status: '真实调试运行中'
+				status: ended
+					? (mode === 'record' ? '完整运行记录完成' : '会话已结束')
+					: (mode === 'record' ? '正在记录完整运行…' : '真实调试运行中')
 			});
 		} catch (error) {
 			this.set({ running: false, status: `真实运行失败：${errorMessage(error)}` });
@@ -278,23 +294,77 @@ export class StudioStore {
 	}
 
 	selectSnapshot(index: number): void {
+		this.stopPlayback();
 		const clamped = Math.max(-1, Math.min(index, this.state.snapshots.length - 1));
 		this.set({ snapshotIndex: clamped, mode: 'debug', canvasView: 'runtime' });
 		this.refreshScene();
 	}
 
 	backToLive(): void {
+		this.stopPlayback();
 		this.set({ snapshotIndex: -1, canvasView: 'runtime' });
 		this.refreshScene();
 	}
 
+	togglePlayback(): void {
+		if (this.state.playback.playing) {
+			this.stopPlayback();
+			return;
+		}
+		if (this.state.snapshots.length < 2) return;
+		const last = this.state.snapshots.length - 1;
+		const start = this.state.snapshotIndex >= 0 && this.state.snapshotIndex < last ? this.state.snapshotIndex : 0;
+		this.set({ playback: { ...this.state.playback, playing: true }, snapshotIndex: start, mode: 'debug', canvasView: 'runtime' });
+		this.refreshScene();
+		this.schedulePlayback();
+	}
+
+	setPlaybackSpeed(speed: number): void {
+		const safe = Math.max(0.25, Math.min(4, speed));
+		this.set({ playback: { ...this.state.playback, speed: safe } });
+		if (this.state.playback.playing) {
+			this.clearPlaybackTimer();
+			this.schedulePlayback();
+		}
+	}
+
+	stopPlayback(): void {
+		this.clearPlaybackTimer();
+		if (this.state.playback.playing) this.set({ playback: { ...this.state.playback, playing: false } });
+	}
+
+	private schedulePlayback(): void {
+		this.clearPlaybackTimer();
+		const delay = Math.max(90, 700 / this.state.playback.speed);
+		this.playbackTimer = setTimeout(() => {
+			if (!this.state.playback.playing) return;
+			const next = this.state.snapshotIndex + 1;
+			if (next >= this.state.snapshots.length) {
+				this.set({ playback: { ...this.state.playback, playing: false }, status: '播放完成' });
+				return;
+			}
+			this.set({ snapshotIndex: next, canvasView: 'runtime' });
+			this.refreshScene();
+			this.schedulePlayback();
+		}, delay);
+	}
+
+	private clearPlaybackTimer(): void {
+		if (this.playbackTimer !== undefined) {
+			clearTimeout(this.playbackTimer);
+			this.playbackTimer = undefined;
+		}
+	}
+
 	selectManualStep(index: number): void {
+		this.stopPlayback();
 		const clamped = Math.max(-1, Math.min(index, this.state.manualBoard.steps.length - 1));
 		this.set({ manualStepIndex: clamped, mode: 'manual' });
 		this.refreshScene();
 	}
 
 	async setMode(mode: StudioMode): Promise<void> {
+		if (mode === 'manual') this.stopPlayback();
 		this.set({ mode });
 		if (mode === 'debug' && !this.state.session) await this.startDebug();
 		this.refreshScene();
@@ -508,7 +578,7 @@ export class StudioStore {
 		}
 		if (event.type === 'runEnded') {
 			patch.running = false;
-			patch.status = '会话已结束';
+			patch.status = before.session?.mode === 'record' ? '完整运行记录完成' : '会话已结束';
 		}
 		if (event.type === 'framesLoaded') {
 			patch.canvasView = 'runtime';

@@ -1,6 +1,6 @@
 # 交接说明
 
-更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy、函数工作台和 AST 静态结构图已接通，其余语言待填。
+更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy、函数工作台、AST 静态结构图、完整运行记录与回放已接通，其余语言待填。
 
 ## 先读
 
@@ -60,8 +60,9 @@ docs/
 ## 工作台/静态图扩展点
 
 - `workbench.py` 只支持 Python；`_template`/`_context_source` 是继承机制的入口。
-- `static_analysis.py` 是启发式结构图；新增语言时按“节点/边契约”提供等价分析器，不要把静态推断写成运行时事实。
+- `static_analysis.py` 是启发式结构图；`executable_lines` 供完整运行自动设断点。新增语言时按“节点/边契约”提供等价分析器，不要把静态推断写成运行时事实。
 - UI 的“结构/运行”视图在 `StudioStore.canvasView`；静态图使用 `origin: static` 和自动 BFS 布局。
+- 完整运行由 `RealDebugService(auto_record=True)` 自动逐行断点/continue；回放由 `StudioStore.togglePlayback/setPlaybackSpeed` 驱动，帧上限 500。
 - 大型图需要聚焦/折叠；当前静态图最低缩放 68%，可平移。
 
 ## 添加其他语言适配器的顺序
@@ -93,7 +94,7 @@ UI 改动需启动 Vite 并用真实浏览器/窗口点过；只看 diff 不算�
 
 ## 下一个任务
 
-**真窗口人工验收 + 大型静态图/工作台体验。** 先让主人实际点一次原生确认框，测 IME/DPI/快捷键/崩溃恢复；再补运行中改断点、嵌套函数/共享引用/循环引用/异常、更多容器与 trace 持久化。之后才接 GDB/js-debug/java-debug/LSP。
+**真窗口人工验收 + 完整运行/回放体验。** 先让主人实际点一次原生确认框，测 IME/DPI/快捷键/崩溃恢复；再补运行中改断点、嵌套函数/共享引用/循环引用/异常、更多容器与 trace 持久化。之后才接 GDB/js-debug/java-debug/LSP。
 
 ## 禁止
 

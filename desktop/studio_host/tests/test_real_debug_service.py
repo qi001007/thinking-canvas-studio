@@ -85,6 +85,30 @@ class RealDebugServiceTests(unittest.IsolatedAsyncioTestCase):
         await self.service.handle("debug.stop", {})
         self.assertTrue(any(event.get("type") == "runEnded" for event in self.events))
 
+    async def test_record_mode_builds_a_complete_frame_timeline(self) -> None:
+        approval = self.service.issue_run_approval("fixture.py", [], "record")
+        result = await self.service.handle("debug.startReal", {
+            "receiptId": approval["receiptId"],
+            "program": "fixture.py",
+            "breakpoints": [],
+            "mode": "record",
+        })
+        self.assertEqual(result["mode"], "record")
+        frames = []
+        for _ in range(30):
+            try:
+                frames.append(await asyncio.wait_for(self.frames.get(), timeout=0.8))
+            except asyncio.TimeoutError:
+                break
+            if any(event.get("type") == "runEnded" for event in self.events):
+                break
+        self.assertGreaterEqual(len(frames), 5)
+        self.assertTrue(frames[0]["label"].startswith("第 1 帧"))
+        lines = [frame["frames"][0].get("line") for frame in frames if frame["frames"]]
+        self.assertIn(2, lines)
+        self.assertIn(4, lines)
+        self.assertTrue(any(event.get("type") == "runEnded" for event in self.events))
+
 
 if __name__ == "__main__":
     unittest.main()

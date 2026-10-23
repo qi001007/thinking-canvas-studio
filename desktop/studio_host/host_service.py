@@ -24,7 +24,7 @@ from .host_approval import ApprovalRegistry
 from .language_packages import LanguagePackageError, load_language_packages
 from .ports import ExecutionSpec, ResourceLimits
 from .real_debug_service import RealDebugError, RealDebugService
-from .static_analysis import analyze_python
+from .static_analysis import analyze_python, executable_lines
 from .windows_supervisor import SupervisorError, WindowsJobObjectSupervisor
 from .workbench import WorkbenchStore, WORKBENCH_DIR
 from .workspace import WorkspaceError, WorkspaceStore
@@ -84,8 +84,8 @@ class HostService:
     def workspace_root(self) -> Path:
         return self._workspace.root_path
 
-    def prepare_run(self, program: str, breakpoints: list[int]) -> dict[str, Any]:
-        scope, config, limits, absolute = self._build_scope(program, breakpoints)
+    def prepare_run(self, program: str, breakpoints: list[int], mode: str = "debug") -> dict[str, Any]:
+        scope, config, limits, absolute = self._build_scope(program, breakpoints, mode)
         return {
             "program": str(absolute),
             "contextSource": config.get("contextSource"),
@@ -99,10 +99,13 @@ class HostService:
             },
             "adapterVersion": scope.adapter_version,
             "configDigest": scope.config_digest,
+            "mode": config["mode"],
+            "traceLineCount": len(config["traceLines"]),
+            "maxFrames": config["maxFrames"],
         }
 
-    def issue_run_approval(self, program: str, breakpoints: list[int]) -> dict[str, Any]:
-        scope, config, limits, absolute = self._build_scope(program, breakpoints)
+    def issue_run_approval(self, program: str, breakpoints: list[int], mode: str = "debug") -> dict[str, Any]:
+        scope, config, limits, absolute = self._build_scope(program, breakpoints, mode)
         receipt = self._approvals.issue(scope)
         return {
             "approved": True,
@@ -117,6 +120,9 @@ class HostService:
                 "cpuSeconds": limits.cpu_seconds,
                 "processCount": limits.process_count,
             },
+            "mode": config["mode"],
+            "traceLineCount": len(config["traceLines"]),
+            "maxFrames": config["maxFrames"],
         }
 
     async def handle(self, method: str, params: dict[str, Any]) -> Any:
@@ -203,7 +209,8 @@ class HostService:
         receipt_id = _text_param(params, "receiptId")
         program = _text_param(params, "program")
         breakpoints = _int_list(params, "breakpoints")
-        scope, config, limits, absolute = self._build_scope(program, breakpoints)
+        mode = _mode(params)
+        scope, config, limits, absolute = self._build_scope(program, breakpoints, mode)
         session_id = f"py-{uuid.uuid4().hex[:10]}"
         try:
             grant = self._authority.issue_approved(
@@ -241,7 +248,14 @@ class HostService:
         self._real = real
         self._active = "real"
         try:
-            return await real.start(transport, program=str(absolute), breakpoints=breakpoints)
+            return await real.start(
+                transport,
+                program=str(absolute),
+                breakpoints=config["breakpoints"],
+                auto_record=mode == "record",
+                trace_lines=config["traceLines"],
+                max_frames=config["maxFrames"],
+            )
         except RealDebugError:
             self._active = None
             self._real = None
@@ -283,7 +297,7 @@ class HostService:
             raise RpcError(-32602, str(exc)) from exc
         return analyze_python(absolute, absolute.read_text(encoding="utf-8"), None, None)
 
-    def _build_scope(self, program: str, breakpoints: list[int]) -> tuple[GrantScope, dict[str, Any], ResourceLimits, Path]:
+    def _build_scope(self, program: str, breakpoints: list[int], mode: str = "debug") -> tuple[GrantScope, dict[str, Any], ResourceLimits, Path]:
         if not isinstance(program, str) or not program.strip():
             raise RpcError(-32602, "program must be a workspace file")
         try:
@@ -295,9 +309,16 @@ class HostService:
             raise RpcError(-32006, "debugpy is not installed in the host interpreter")
         if not self._supervisor.enforces(DEFAULT_LIMITS):
             raise RpcError(-32007, "OS-enforced resource limits are unavailable")
+        if mode not in {"debug", "record"}:
+            raise RpcError(-32602, "mode must be debug or record")
         lines = sorted({line for line in breakpoints if isinstance(line, int) and not isinstance(line, bool) and line > 0})
         if len(lines) > 200:
             raise RpcError(-32602, "too many breakpoints")
+        trace_lines: list[int] = []
+        if mode == "record":
+            trace_lines = executable_lines(absolute.read_text(encoding="utf-8"))[:400]
+            if not trace_lines:
+                raise RpcError(-32602, "no executable lines to record")
         source_bytes = absolute.read_bytes()
         if len(source_bytes) > self._workspace.max_text_bytes:
             raise RpcError(-32602, "program exceeds the text size limit")
@@ -319,6 +340,9 @@ class HostService:
             "cwd": str(self._workspace.root_path),
             "interpreter": _detect_interpreter(self._workspace.root_path),
             "breakpoints": lines,
+            "mode": mode,
+            "traceLines": trace_lines,
+            "maxFrames": 500,
             "limits": {
                 "timeoutSeconds": DEFAULT_LIMITS.timeout_seconds,
                 "memoryBytes": DEFAULT_LIMITS.memory_bytes,
@@ -341,6 +365,13 @@ def _text_param(params: dict[str, Any], name: str) -> str:
     value = params.get(name)
     if not isinstance(value, str):
         raise RpcError(-32602, f"{name} must be text")
+    return value
+
+
+def _mode(params: dict[str, Any]) -> str:
+    value = params.get("mode", "debug")
+    if value not in {"debug", "record"}:
+        raise RpcError(-32602, "mode must be debug or record")
     return value
 
 
