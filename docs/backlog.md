@@ -13,4 +13,4 @@
 - 2026-10-23：补充卡片边界规范：函数框就是大方框；普通卡最大 560×360；数组/矩阵/字典分页窗口；页面文案减法。见 `docs/canvas-card-spec.md`。
 - 2026-10-23：P0a 调试落地：真实 debugpy 变量分页（10 万项 fixture）、Watch/REPL（授权 + 停点代际）、暂停按钮、画布长容器窗口/`…`、页面文案压缩；Python 56 项测试；真实 UI 截图 `docs/screenshots/debug-watch.png`。
 - 2026-10-24：画布第一版结构修正：函数/类大方框+参数标签、统一 12px 字号、变量卡按内容加宽、语义边过滤/端口分线/图例；运行时用静态骨架叠加当前帧值；新增 `static-frame.png`、更新 `debug-watch.png`。
-- 2026-10-24：嵌套控制第一版：`for/while/if/else/推导式` 生成 `loop/branch` 节点，按结构树框套框；`scan` fixture 5 区域/4 控制框，运行时同一嵌套结构叠加实时值；Python 57 项测试。
+- 2026-10-24：嵌套控制第一版：`for/while/if/else/推导式` 生成 `loop/branch` 节点，按结构树框套框；`scan` fixture 5 区域/4 控制框，运行时同一嵌套结构叠加实时值；循环框头部显示已捕获轮次值（4 停点：row 两行、value 1/-2/3/4）；Python 57 项测试。

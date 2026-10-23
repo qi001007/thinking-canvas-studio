@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEven
 import { graphlib, layout as dagreLayout } from '@dagrejs/dagre';
 import type { SceneDiff } from '@core/canvas/diff';
 import type { LayoutViewState } from '@core/canvas/documents';
-import type { CanvasNode, CardData, SceneDto } from '@core/domain/contracts';
+import type { CanvasNode, CardData, SceneDto, TraceSnapshot } from '@core/domain/contracts';
 
 interface SceneCanvasProps {
 	readonly scene: SceneDto;
 	readonly mode: 'manual' | 'debug';
 	readonly graphView?: 'overview' | 'structure' | 'data';
 	readonly focusId?: string;
+	readonly history?: readonly TraceSnapshot[];
+	readonly historyIndex?: number;
 	readonly layout: LayoutViewState;
 	readonly diff: SceneDiff;
 	readonly selectedNodeId?: string;
@@ -113,6 +115,8 @@ export function SceneCanvas({
 	mode,
 	graphView = 'overview',
 	focusId,
+	history,
+	historyIndex,
 	layout,
 	diff,
 	selectedNodeId,
@@ -130,6 +134,10 @@ export function SceneCanvas({
 	const sceneKey = useMemo(() => scene.nodes.map(node => node.id).join('|'), [scene.nodes]);
 	const regions = useMemo(() => frameRegions(scene, positions, graphView, focusId), [scene, positions, graphView, focusId]);
 	const hiddenNodeIds = useMemo(() => new Set(regions.map(region => region.hideNodeId).filter((id): id is string => !!id)), [regions]);
+	const loopTracks = useMemo(
+		() => loopHistory(scene, history, historyIndex, focusId),
+		[scene, history, historyIndex, focusId]
+	);
 	const visibleEdges = useMemo(() => {
 		const isStatic = scene.nodes.some(node => node.origin === 'static');
 		if (!isStatic) return scene.edges;
@@ -269,23 +277,37 @@ export function SceneCanvas({
 						);
 					})}
 				</svg>
-				{regions.map(region => (
-					<div
-						className={`scene-frame-region ${region.variant === 'control' ? 'is-control' : ''}`}
-						key={region.id}
-						style={{ left: region.x, top: region.y, width: region.width, height: region.height }}
-					>
-						<div className="scene-frame-head">
-							<strong>{region.title}</strong>
-							<span>{region.subtitle}</span>
-							{region.params.length > 0 && (
-								<div className="scene-frame-params">
-									{region.params.map(param => <span key={param}>{param}</span>)}
+				{regions.map(region => {
+					const loopId = region.id.startsWith('control:') ? region.id.slice('control:'.length) : undefined;
+					const track = loopId ? loopTracks[loopId] : undefined;
+					return (
+						<div
+							className={`scene-frame-region ${region.variant === 'control' ? 'is-control' : ''}`}
+							key={region.id}
+							style={{ left: region.x, top: region.y, width: region.width, height: region.height }}
+						>
+							<div className="scene-frame-head">
+								<strong>{region.title}</strong>
+								<span>{region.subtitle}</span>
+								{region.params.length > 0 && (
+									<div className="scene-frame-params">
+										{region.params.map(param => <span key={param}>{param}</span>)}
+									</div>
+								)}
+							</div>
+							{track && (
+								<div className="scene-loop-track" style={{ top: 46 }}>
+									{track.truncated && <span className="is-muted">…</span>}
+									{track.chips.map((chip, index) => (
+										<span className={index === track.chips.length - 1 ? 'is-current' : ''} key={chip.iteration}>
+											{chip.iteration}. {chip.text}
+										</span>
+									))}
 								</div>
 							)}
 						</div>
-					</div>
-				))}
+					);
+				})}
 				{scene.nodes.filter(node => !hiddenNodeIds.has(node.id)).map(node => {
 					const position = positions[node.id] ?? { x: 0, y: 0 };
 					const size = sizeOf(node);
@@ -837,7 +859,7 @@ function sizeOf(node: CanvasNode): { width: number; height: number } {
 						: card?.kind === 'class' ? `${card.name}(${card.bases.join(', ')})`
 							: node.label;
 		if (card && ['variable', 'text', 'node', 'function', 'loop', 'branch', 'class'].includes(card.kind)) {
-			const width = Math.max(220, Math.min(420, 120 + text.length * 7));
+			const width = Math.max(220, Math.min(360, 120 + text.length * 7));
 			const charsPerLine = Math.max(1, Math.floor((width - 36) / 7));
 			const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
 			const baseHeight = card.kind === 'function' ? 150 : card.kind === 'class' ? 170 : card.kind === 'loop' ? 100 : 86;
@@ -846,6 +868,57 @@ function sizeOf(node: CanvasNode): { width: number; height: number } {
 	}
 	const width = node.origin === 'static' ? STATIC_CARD_WIDTH[kind] ?? CARD_WIDTH[kind] : CARD_WIDTH[kind];
 	return { width, height: CARD_HEIGHT[kind] };
+}
+
+interface LoopTrack {
+	readonly truncated: boolean;
+	readonly chips: readonly { readonly iteration: number; readonly text: string }[];
+}
+
+function loopHistory(
+	scene: SceneDto,
+	history: readonly TraceSnapshot[] | undefined,
+	historyIndex: number | undefined,
+	focusId: string | undefined
+): Record<string, LoopTrack> {
+	if (!history || history.length === 0 || !scene.nodes.some(node => node.origin === 'runtime')) return {};
+	const focus = scene.nodes.find(node => node.id === focusId)
+		?? scene.nodes.find(node => node.card?.kind === 'function' && !String(node.label).startsWith('__main__'))
+		?? scene.nodes.find(node => node.card?.kind === 'function');
+	const focusName = focus?.label;
+	const loops = scene.nodes.filter(node => node.card?.kind === 'loop');
+	const lastIndex = historyIndex !== undefined && historyIndex >= 0
+		? Math.min(historyIndex, history.length - 1)
+		: history.length - 1;
+	const snapshots = history.slice(0, lastIndex + 1);
+	const tracks: Record<string, LoopTrack> = {};
+	for (const loop of loops) {
+		const defined = new Set(scene.edges.filter(edge => edge.from === loop.id && edge.kind === 'defines').map(edge => edge.to));
+		const names = scene.edges
+			.filter(edge => edge.from === loop.id && edge.kind === 'writes' && !defined.has(edge.to))
+			.map(edge => scene.nodes.find(node => node.id === edge.to)?.label)
+			.filter((name): name is string => !!name);
+		if (names.length === 0) continue;
+		const chips: { iteration: number; text: string }[] = [];
+		for (const snapshot of snapshots) {
+			const frame = (focusName ? snapshot.frames.find(item => item.name === focusName) : undefined) ?? snapshot.frames[0];
+			if (!frame) continue;
+			const values = new Map<string, string>();
+			for (const scope of frame.scopes) {
+				for (const value of scope.values) values.set(value.name, value.value);
+			}
+			if (!names.every(name => values.has(name))) continue;
+			const text = names.map(name => `${name}=${(values.get(name) ?? '').slice(0, 18)}`).join(' · ');
+			if (chips.at(-1)?.text === text) continue;
+			chips.push({ iteration: chips.length + 1, text });
+		}
+		if (chips.length === 0) continue;
+		tracks[loop.id] = {
+			truncated: chips.length > 6,
+			chips: chips.slice(-6)
+		};
+	}
+	return tracks;
 }
 
 function structuralParentMap(scene: SceneDto): Map<string, string> {
@@ -901,9 +974,9 @@ function functionMemberGrid(scene: SceneDto, positions: Record<string, Point>, f
 	};
 	positions[focus.id] = { x: 40, y: 90 };
 	const direct = childrenOf(focus.id);
-	const columns = Math.min(2, Math.max(1, direct.length));
-	const columnWidth = 420;
-	const columnGap = 36;
+	const columns = Math.min(direct.length > 3 ? 3 : 2, Math.max(1, direct.length));
+	const columnWidth = 320;
+	const columnGap = 30;
 	const columnX = Array.from({ length: columns }, (_, index) => 40 + index * (columnWidth + columnGap));
 	const columnY = Array.from({ length: columns }, () => 140);
 	direct.forEach((child, index) => {

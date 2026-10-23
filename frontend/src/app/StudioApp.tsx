@@ -188,6 +188,8 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 								mode={state.mode}
 								graphView={state.graphView}
 								focusId={state.graphFocus}
+								history={state.snapshots}
+								historyIndex={state.snapshotIndex >= 0 ? state.snapshotIndex : state.snapshots.length - 1}
 								layout={state.manualBoard.layout}
 								diff={state.diff}
 								selectedNodeId={state.selectedNodeId}
