@@ -173,7 +173,8 @@ export type CardData =
 	| { readonly kind: 'import'; readonly module: string; readonly names?: readonly string[] }
 	| { readonly kind: 'call'; readonly target: string; readonly args?: readonly string[]; readonly line?: number }
 	| { readonly kind: 'external'; readonly target: string; readonly category?: string }
-	| { readonly kind: 'loop'; readonly header: string; readonly line?: number };
+	| { readonly kind: 'loop'; readonly header: string; readonly line?: number }
+	| { readonly kind: 'branch'; readonly condition: string; readonly line?: number };
 
 export interface CanvasNode {
 	readonly id: string;		// Stable layout key.

@@ -35,6 +35,7 @@ interface FrameRegion {
 	readonly subtitle: string;
 	readonly params: readonly string[];
 	readonly hideNodeId?: string;
+	readonly variant?: 'frame' | 'control';
 	readonly x: number;
 	readonly y: number;
 	readonly width: number;
@@ -65,7 +66,8 @@ const CARD_WIDTH: Record<CardData['kind'], number> = {
 	import: 240,
 	call: 280,
 	external: 230,
-	loop: 260
+	loop: 260,
+	branch: 240
 };
 
 const STATIC_CARD_WIDTH: Partial<Record<CardData['kind'], number>> = {
@@ -77,7 +79,8 @@ const STATIC_CARD_WIDTH: Partial<Record<CardData['kind'], number>> = {
 	import: 200,
 	call: 230,
 	external: 180,
-	loop: 210
+	loop: 210,
+	branch: 220
 };
 
 const CARD_HEIGHT: Record<CardData['kind'], number> = {
@@ -101,7 +104,8 @@ const CARD_HEIGHT: Record<CardData['kind'], number> = {
 	import: 110,
 	call: 140,
 	external: 92,
-	loop: 100
+	loop: 100,
+	branch: 84
 };
 
 export function SceneCanvas({
@@ -139,7 +143,8 @@ export function SceneCanvas({
 				: new Set(['defines', 'calls', 'inherits', 'imports', 'uses', 'nested', 'method', 'field', 'parameter']);
 		return scene.edges.filter(edge => {
 			if (!allowed.has(edge.kind)) return false;
-			if (edge.from === frameFocus && ['defines', 'parameter', 'method', 'field', 'contains'].includes(edge.kind)) return false;
+			if (['contains', 'nested'].includes(edge.kind)) return false;
+			if (edge.from === frameFocus && ['defines', 'parameter', 'method', 'field'].includes(edge.kind)) return false;
 			return true;
 		});
 	}, [scene, graphView, focusId]);
@@ -266,7 +271,7 @@ export function SceneCanvas({
 				</svg>
 				{regions.map(region => (
 					<div
-						className="scene-frame-region"
+						className={`scene-frame-region ${region.variant === 'control' ? 'is-control' : ''}`}
 						key={region.id}
 						style={{ left: region.x, top: region.y, width: region.width, height: region.height }}
 					>
@@ -476,6 +481,8 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 			return <div className="canvas-external"><span>{card.target}</span>{card.category && <small>{card.category}</small>}</div>;
 		case 'loop':
 			return <div className="canvas-loop"><span>{card.header}</span>{card.line && <small>line {card.line}</small>}</div>;
+		case 'branch':
+			return <div className="canvas-branch"><span>{card.condition}</span>{card.line && <small>line {card.line}</small>}</div>;
 		case 'sticky':
 			return <div className={`canvas-sticky ${card.tone === 'invariant' ? 'is-invariant' : ''}`}>{card.text}</div>;
 		case 'function':
@@ -575,6 +582,11 @@ function frameRegions(
 	}
 	const hideFocus = focus.card?.kind === 'function' || focus.card?.kind === 'class';
 	if (hideFocus) included.delete(focus.id);
+	const parentMap = structuralParentMap(scene);
+	const childMap = new Map<string, string[]>();
+	for (const [child, parent] of parentMap) {
+		childMap.set(parent, [...(childMap.get(parent) ?? []), child]);
+	}
 	let minX = Number.POSITIVE_INFINITY;
 	let minY = Number.POSITIVE_INFINITY;
 	let maxX = 0;
@@ -596,17 +608,63 @@ function frameRegions(
 	const subtitle = focus.card.kind === 'function'
 		? focus.card.signature
 		: focus.card.kind === 'class' ? `类${focus.card.bases.length > 0 ? ` · 继承 ${focus.card.bases.join(', ')}` : ''}` : '';
-	return [{
+	const regions: FrameRegion[] = [{
 		id: `frame:${focus.id}`,
 		title: focus.label,
 		subtitle,
 		params,
 		hideNodeId: hideFocus ? focus.id : undefined,
+		variant: 'frame',
 		x: minX - padding,
 		y: Math.max(0, minY - header - 14),
 		width: maxX - minX + padding * 2,
 		height: maxY - minY + header + padding + 14
 	}];
+	const collectDescendants = (id: string): string[] => {
+		const result: string[] = [];
+		const visit = (parent: string) => {
+			for (const child of childMap.get(parent) ?? []) {
+				result.push(child);
+				visit(child);
+			}
+		};
+		visit(id);
+		return result;
+	};
+	for (const node of scene.nodes) {
+		if (node.card?.kind !== 'loop' && node.card?.kind !== 'branch') continue;
+		const position = positions[node.id];
+		if (!position) continue;
+		const descendants = collectDescendants(node.id);
+		let controlMinX = position.x;
+		let controlMinY = position.y;
+		let controlMaxX = position.x + sizeOf(node).width;
+		let controlMaxY = position.y + sizeOf(node).height;
+		for (const id of descendants) {
+			const child = byId.get(id);
+			const childPosition = positions[id];
+			if (!child || !childPosition) continue;
+			const size = sizeOf(child);
+			controlMinX = Math.min(controlMinX, childPosition.x);
+			controlMinY = Math.min(controlMinY, childPosition.y);
+			controlMaxX = Math.max(controlMaxX, childPosition.x + size.width);
+			controlMaxY = Math.max(controlMaxY, childPosition.y + size.height);
+		}
+		const title = node.card.kind === 'loop' ? node.card.header : node.card.condition;
+		regions.push({
+			id: `control:${node.id}`,
+			title,
+			subtitle: node.card.line ? `line ${node.card.line}` : '',
+			params: [],
+			hideNodeId: node.id,
+			variant: 'control',
+			x: controlMinX - 14,
+			y: controlMinY,
+			width: controlMaxX - controlMinX + 28,
+			height: controlMaxY - controlMinY + 20
+		});
+	}
+	return regions;
 }
 
 function layoutPositions(scene: SceneDto, layout: LayoutViewState, graphView: 'overview' | 'structure' | 'data', focusId: string | undefined): Record<string, Point> {
@@ -775,10 +833,11 @@ function sizeOf(node: CanvasNode): { width: number; height: number } {
 			? card.value
 			: card?.kind === 'function' ? card.signature
 				: card?.kind === 'loop' ? card.header
-					: card?.kind === 'class' ? `${card.name}(${card.bases.join(', ')})`
-						: node.label;
-		if (card && ['variable', 'text', 'node', 'function', 'loop', 'class'].includes(card.kind)) {
-			const width = Math.max(220, Math.min(560, 120 + text.length * 7));
+					: card?.kind === 'branch' ? card.condition
+						: card?.kind === 'class' ? `${card.name}(${card.bases.join(', ')})`
+							: node.label;
+		if (card && ['variable', 'text', 'node', 'function', 'loop', 'branch', 'class'].includes(card.kind)) {
+			const width = Math.max(220, Math.min(420, 120 + text.length * 7));
 			const charsPerLine = Math.max(1, Math.floor((width - 36) / 7));
 			const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
 			const baseHeight = card.kind === 'function' ? 150 : card.kind === 'class' ? 170 : card.kind === 'loop' ? 100 : 86;
@@ -789,31 +848,76 @@ function sizeOf(node: CanvasNode): { width: number; height: number } {
 	return { width, height: CARD_HEIGHT[kind] };
 }
 
+function structuralParentMap(scene: SceneDto): Map<string, string> {
+	const priority = new Map([
+		['nested', 0],
+		['defines', 1],
+		['parameter', 2],
+		['writes', 3],
+		['iterates', 4],
+		['contains', 5]
+	]);
+	const parent = new Map<string, string>();
+	const scores = new Map<string, number>();
+	for (const edge of scene.edges) {
+		const score = priority.get(edge.kind);
+		if (score === undefined || edge.from === edge.to) continue;
+		const current = scores.get(edge.to);
+		if (current === undefined || score < current) {
+			parent.set(edge.to, edge.from);
+			scores.set(edge.to, score);
+		}
+	}
+	return parent;
+}
+
 function functionMemberGrid(scene: SceneDto, positions: Record<string, Point>, focusId: string | undefined): boolean {
 	const focus = scene.nodes.find(node => node.id === focusId && node.card?.kind === 'function')
 		?? scene.nodes.find(node => node.card?.kind === 'function' && !String(node.label).startsWith('__main__'));
 	if (!focus || focus.card?.kind !== 'function') return false;
-	const members = scene.nodes.filter(node => node.id !== focus.id);
-	if (members.length === 0) return false;
-	positions[focus.id] = { x: 40, y: 90 };
-	const columns = Math.min(3, Math.max(1, members.length));
-	const cellWidth = Math.max(240, ...members.map(node => sizeOf(node).width));
-	const gapX = 32;
-	const gapY = 28;
-	let cursorX = 40;
-	let cursorY = 140;
-	let rowHeight = 0;
-	members.forEach((node, index) => {
-		const column = index % columns;
-		if (column === 0 && index > 0) {
-			cursorY += rowHeight + gapY;
-			cursorX = 40;
-			rowHeight = 0;
+	const byId = new Map(scene.nodes.map(node => [node.id, node]));
+	const parent = structuralParentMap(scene);
+	const childrenOf = (id: string) => scene.nodes.filter(node => parent.get(node.id) === id);
+	const isControl = (node: CanvasNode) => node.card?.kind === 'loop' || node.card?.kind === 'branch';
+	const layoutNode = (node: CanvasNode, x: number, y: number): { width: number; height: number } => {
+		if (!isControl(node)) {
+			const size = sizeOf(node);
+			positions[node.id] = { x, y };
+			return size;
 		}
-		positions[node.id] = { x: cursorX, y: cursorY };
-		cursorX += cellWidth + gapX;
-		rowHeight = Math.max(rowHeight, sizeOf(node).height);
+		const children = childrenOf(node.id);
+		const header = 48;
+		const padding = 18;
+		const gap = 20;
+		let cursorY = y + header + padding;
+		let width = 260;
+		for (const child of children) {
+			const size = layoutNode(child, x + padding, cursorY);
+			width = Math.max(width, size.width + padding * 2);
+			cursorY += size.height + gap;
+		}
+		positions[node.id] = { x, y };
+		return { width, height: Math.max(100, cursorY - y + 10) };
+	};
+	positions[focus.id] = { x: 40, y: 90 };
+	const direct = childrenOf(focus.id);
+	const columns = Math.min(2, Math.max(1, direct.length));
+	const columnWidth = 420;
+	const columnGap = 36;
+	const columnX = Array.from({ length: columns }, (_, index) => 40 + index * (columnWidth + columnGap));
+	const columnY = Array.from({ length: columns }, () => 140);
+	direct.forEach((child, index) => {
+		const column = index % columns;
+		const size = layoutNode(child, columnX[column] ?? 40, columnY[column] ?? 140);
+		columnY[column] = (columnY[column] ?? 140) + size.height + 24;
 	});
+	const bottom = Math.max(140, ...columnY);
+	for (const node of scene.nodes) {
+		if (positions[node.id]) continue;
+		if (!byId.has(node.id)) continue;
+		const size = sizeOf(node);
+		positions[node.id] = { x: 40, y: bottom };
+	}
 	return true;
 }
 

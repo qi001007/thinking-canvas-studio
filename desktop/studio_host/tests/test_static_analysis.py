@@ -90,6 +90,32 @@ class Layer(Base):
         self.assertTrue(any(edge["kind"] == "iterates" for edge in forward_view["scene"]["edges"]))
         self.assertTrue(any(edge["kind"] == "returns" for edge in forward_view["scene"]["edges"]))
 
+    async def test_nested_loops_branches_and_comprehensions_are_nested_nodes(self) -> None:
+        info = await self.service.handle("workbench.create", {"sourceFile": "model.py"})
+        code = '''def scan(rows):
+    total = 0
+    for row in rows:
+        for value in row:
+            if value > 0:
+                total += value
+    positives = [value for row in rows for value in row if value > 0]
+    return total, positives
+'''
+        await self.service.handle("workbench.write", {"path": info["path"], "content": code})
+        result = await self.service.handle("analysis.analyze", {"path": info["path"], "view": "structure"})
+        labels = [node["label"] for node in result["scene"]["nodes"]]
+        self.assertTrue(any(label.startswith("for row in rows") for label in labels))
+        self.assertTrue(any(label.startswith("for value in row") for label in labels))
+        self.assertTrue(any(label.startswith("if value > 0") for label in labels))
+        self.assertTrue(any(label.startswith("[value for row in rows") for label in labels))
+        branches = [node for node in result["scene"]["nodes"] if node.get("card", {}).get("kind") == "branch"]
+        self.assertTrue(branches)
+        nested = [
+            edge for edge in result["scene"]["edges"]
+            if edge["kind"] == "nested"
+        ]
+        self.assertGreaterEqual(len(nested), 3)
+
     async def test_syntax_error_does_not_get_faked_as_structure(self) -> None:
         info = await self.service.handle("workbench.create", {"sourceFile": "model.py"})
         await self.service.handle("workbench.write", {"path": info["path"], "content": "def broken(:\n    pass\n"})

@@ -135,6 +135,24 @@
 	white-space: nowrap;
 }
 
+.scene-frame-region.is-control {
+	border-style: dashed;
+	background: color-mix(in srgb, var(--accent-soft) 22%, transparent);
+}
+
+.scene-frame-region.is-control .scene-frame-head {
+	min-height: 46px;
+	padding: 8px 12px;
+	background: color-mix(in srgb, var(--accent-soft) 30%, transparent);
+}
+
+.scene-frame-region.is-control .scene-frame-head strong {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--accent-ink);
+}
+
 .scene-edge-label {
 	paint-order: stroke;
 	stroke: var(--paper);
@@ -588,6 +606,20 @@
 .canvas-module,
 .canvas-import,
 .canvas-external,
+.canvas-branch {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--accent-ink);
+}
+
+.canvas-branch small {
+	color: var(--faint);
+	font-size: 9px;
+}
+
 .canvas-loop {
 	display: flex;
 	flex-direction: column;

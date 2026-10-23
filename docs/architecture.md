@@ -70,6 +70,7 @@ flowchart LR
 | ADR-019 | TS/JS 用 TypeScript compiler API 做单文件静态图 | 复用编辑器同源解析器，不写正则；只做 AST 事实，不做类型检查/跨文件/运行；真实调试另接 js-debug |
 | ADR-020 | 变量懒加载/分页 + Watch/REPL 求值纳入运行授权 | 长数组不一次抓完；`debug.variablesPage` 按停点句柄分页；`debug.evaluate` 只在授权会话的停点执行；原生确认明确写“允许 Watch/REPL 表达式” |
 | ADR-021 | 静态骨架 + 运行时值叠加 | 运行时不再另起平铺布局；静态函数/类框、参数标签、循环/变量卡作为骨架，当前帧值覆盖同名变量/参数卡；结构不跳、值在原位变化；无匹配值时回退独立运行时投影 |
+| ADR-022 | 控制结构用结构树嵌套，不画成平级卡片 | `for/while/if/else/推导式` 生成 `loop/branch` 节点；前端按 `nested/defines/writes` 建树，框套框布局；包含关系靠空间，不再画 `contains` 线 |
 
 ## 一次单步的数据流
 

@@ -69,7 +69,8 @@ docs/
 - TS/JS 由 `desktop/analyzers/js_analyzer.mjs` 解析，宿主 `_analyze_js` 调用后再过 `graph_views`；不执行 Node 中的用户代码。
 - UI 的“静态/运行”视图在 `StudioStore.canvasView`，静态图的“总览/结构/数据”在 `graphView`，聚焦节点在 `graphFocus`。
 - 静态布局：`SceneCanvas` 的 dagre TB + 类/函数成员网格 + 大方框区域 + `ResizeObserver` 自动适配；阅读上限在 `graph_views.py`。
-- 运行时叠加：`StudioStore.runtimeOverlay` 用当前帧的值覆盖同名静态变量/参数卡；没有匹配值时回退 `projectSnapshot`。循环轨道/赋值证据/张量元数据仍待补。
+- 运行时叠加：`StudioStore.runtimeOverlay` 用当前帧的值覆盖同名静态变量/参数卡；没有匹配值时回退 `projectSnapshot`。
+- 嵌套控制：Python 分析器生成 `loop/branch` 节点和 `nested` 边，推导式也生成控制节点；`SceneCanvas.functionMemberGrid` 按结构树递归布局，`frameRegions` 为控制节点生成嵌套框。当前 `if` 内写入边、逐迭代轨道、张量元数据仍待补。
 - 完整运行由 `RealDebugService(auto_record=True)` 自动逐行断点/continue；回放由 `StudioStore.togglePlayback/setPlaybackSpeed` 驱动，帧上限 500。
 
 ## 添加其他语言适配器的顺序

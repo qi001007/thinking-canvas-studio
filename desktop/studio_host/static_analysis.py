@@ -306,9 +306,7 @@ class StaticAnalyzer:
             elif isinstance(stmt, ast.While):
                 self._loop(stmt, owner, scope, class_id, function_id, "while", None, stmt.test, stmt.body)
             elif isinstance(stmt, ast.If):
-                self._expr(stmt.test, owner, scope, class_id, function_id)
-                self._body(stmt.body, owner, scope, class_id, function_id, in_loop=in_loop, class_fields=class_fields)
-                self._body(stmt.orelse, owner, scope, class_id, function_id, in_loop=in_loop, class_fields=class_fields)
+                self._if(stmt, owner, scope, class_id, function_id, in_loop=in_loop, class_fields=class_fields)
             elif isinstance(stmt, (ast.With, ast.AsyncWith)):
                 for item in stmt.items:
                     self._expr(item.context_expr, owner, scope, class_id, function_id)
@@ -341,6 +339,8 @@ class StaticAnalyzer:
     ) -> None:
         annotation = _annotation(stmt.annotation) if isinstance(stmt, ast.AnnAssign) else None
         value = getattr(stmt, "value", None)
+        if isinstance(value, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            self._comprehension(value, owner, scope, class_id, function_id)
         value_node = self._expr(value, owner, scope, class_id, function_id) if value is not None else None
         targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
         for target in targets:
@@ -408,7 +408,7 @@ class StaticAnalyzer:
         loop_id = self._unique(f"static:loop:{owner}:{stmt.lineno}")
         if self._node(loop_id, header, {"kind": "loop", "header": header, "line": stmt.lineno}, line=stmt.lineno) is None:
             return
-        self._edge(owner, loop_id, "contains", header)
+        self._edge(owner, loop_id, "nested", header)
         self._expr(iterable, owner, scope, class_id, function_id)
         for name in _names(iterable):
             node = self._resolve(name, scope)
@@ -420,6 +420,50 @@ class StaticAnalyzer:
                 scope[target.id] = var_id
                 self._edge(loop_id, var_id, "writes", target.id)
         self._body(body, loop_id, scope, class_id, function_id, in_loop=True)
+
+    def _if(
+        self,
+        stmt: ast.If,
+        owner: str,
+        scope: dict[str, str],
+        class_id: str | None,
+        function_id: str | None,
+        *,
+        in_loop: bool,
+        class_fields: list[str] | None,
+    ) -> None:
+        condition = f"if {_short_unparse(stmt.test)}"
+        branch_id = self._unique(f"static:branch:{owner}:{stmt.lineno}")
+        if self._node(branch_id, condition, {"kind": "branch", "condition": condition, "line": stmt.lineno}, line=stmt.lineno) is None:
+            return
+        self._edge(owner, branch_id, "nested", condition)
+        self._expr(stmt.test, owner, scope, class_id, function_id)
+        self._body(stmt.body, branch_id, scope, class_id, function_id, in_loop=in_loop, class_fields=class_fields)
+        if stmt.orelse:
+            else_id = self._unique(f"static:branch:else:{owner}:{stmt.lineno}")
+            if self._node(else_id, "else", {"kind": "branch", "condition": "else", "line": stmt.lineno}, line=stmt.lineno) is not None:
+                self._edge(branch_id, else_id, "nested", "else")
+                self._body(stmt.orelse, else_id, scope, class_id, function_id, in_loop=in_loop, class_fields=class_fields)
+
+    def _comprehension(
+        self,
+        expr: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp,
+        owner: str,
+        scope: dict[str, str],
+        class_id: str | None,
+        function_id: str | None,
+    ) -> None:
+        header = _short_unparse(expr)
+        comp_id = self._unique(f"static:loop:comprehension:{owner}:{expr.lineno}")
+        if self._node(comp_id, header, {"kind": "loop", "header": header, "line": expr.lineno, "comprehension": True}, line=expr.lineno) is None:
+            return
+        self._edge(owner, comp_id, "nested", "comprehension")
+        for generator in expr.generators:
+            self._expr(generator.iter, comp_id, scope, class_id, function_id)
+            if isinstance(generator.target, ast.Name):
+                var_id = self._unique(f"static:var:{comp_id}:{generator.target.id}")
+                if self._node(var_id, generator.target.id, {"kind": "variable", "value": "comprehension item"}) is not None:
+                    self._edge(comp_id, var_id, "writes", generator.target.id)
 
     def _return(self, stmt: ast.Return, owner: str, scope: dict[str, str], function_id: str | None) -> None:
         if stmt.value is None or function_id is None:

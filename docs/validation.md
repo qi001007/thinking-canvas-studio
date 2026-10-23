@@ -8,7 +8,7 @@
 |---|---|---|
 | `npm run typecheck` | 通过 | React/TS/Monaco 严格类型检查 |
 | `npm test` | 19 项通过 | 生命周期、投影、卡片、单元格 diff、手绘步骤、预算 |
-| `python -m unittest discover -s desktop/studio_host/tests -t desktop -v` | 56 项通过 | 策略、DAP 帧、桥、工作区、语言包、脚本 DAP、WS、真实 debugpy、100,000 项变量分页/求值、Job Object 超时、静态分析/工作台、TS 分析、自动记录 |
+| `python -m unittest discover -s desktop/studio_host/tests -t desktop -v` | 57 项通过 | 策略、DAP 帧、桥、工作区、语言包、脚本 DAP、WS、真实 debugpy、100,000 项变量分页/求值、Job Object 超时、静态分析/工作台、TS 分析、自动记录 |
 | `npm run build` | 通过 | Monaco 主索引约 3.09 MB，gzip 约 820 KB |
 | `python desktop/app.py --smoke` | 通过 | 桥端口、工作区 3 个文件、app.info |
 | 浏览器 1680×1050（无头 Edge + CDP） | 通过 | Monaco、卡片、变量树、时间线、步过差异、手绘加卡/记录 |
@@ -20,7 +20,8 @@
 | TS/JS 静态图 | 通过 | `fixture.ts` 总览 3 卡、结构 8 卡；使用 TypeScript compiler API；非 Python 真实运行按钮禁用 |
 | 大文件渐进展开 | 通过 | `static_analysis.py`：总览 11 节点 @50%、类结构 17 卡 @73%、类数据 17 节点，coverage partial；聚焦方法可继续查看 |
 | 变量分页 / Watch / REPL | 通过 | 真实 debugpy `main.py:7`：Watch `len(nums)=1000`，REPL 返回 `1000`，`nums` 从 100 项加载到 151 项 |
-| 静态函数框 / 运行时叠加 | 通过 | `main(nums: list[int])`：静态框头参数标签、框内 5 卡、字号 12px；运行时同一骨架显示 `nums` 窗口、`total=499500`、`value=999`、`marker=499501`，Watch `1000`；截图 `static-frame.png`、`debug-watch.png` |
+| 静态函数框 / 运行时叠加 | 通过 | `main(nums: list[int])`：静态框头参数标签、框内 5 卡、字号 12px；运行时同一骨架显示 `nums` 窗口、`total=499500`、`value=999`、`marker=499501`，Watch `1000` |
+| 嵌套控制结构 | 通过 | `scan(rows)`：静态 8 卡、5 个区域（函数框 + 外层 for + 内层 for + if + 推导式）；区域矩形实测内层在外层内（外层 205×324，内层 192×200，if 179×76）；运行时同一嵌套结构 + Watch `len(rows)=2`；截图 `static-frame.png`、`debug-watch.png` |
 | 100,000 项数组 | 通过 | 首批 100 项；`debug.variablesPage` 从第 100 项继续返回 5 项；`len(nums)=100000`，不一次性渲染完整数据 |
 | 帧轴时间线 | 通过 | Demo 步过后 2 帧、滑块当前值 1；500 帧上限 |
 | 完整运行记录 | 通过 | fixture 自动记录 12 帧，包含循环行 3/4、函数行 2/5、测试行 8/9；自动继续到结束 |
