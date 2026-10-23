@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -28,6 +28,7 @@ class ExecutionSpec:
     config_digest: str
     limits: ResourceLimits
     session_id: str | None = None
+    launch_config: dict[str, object] = field(default_factory=dict)
 
 
 @runtime_checkable

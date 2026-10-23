@@ -1340,3 +1340,13 @@ button {
 	color: var(--faint);
 	padding: 0 4px;
 }
+
+.live-badge {
+	font-size: 9px;
+	padding: 3px 7px;
+	border-radius: 999px;
+	background: var(--green-soft);
+	color: var(--green);
+	border: 1px solid var(--green-line);
+	white-space: nowrap;
+}

@@ -15,6 +15,7 @@
 | TypeScript | 5.9.3 | Apache-2.0 | 开发依赖 |
 | pywebview | 6.2.1 | BSD-3-Clause | 桌面壳 |
 | websockets | 17.1 | BSD-3-Clause | 本地桥 |
+| debugpy | 1.6.7（宿主当前版本） | MIT | 真实 Python 调试；需另核 vendored pydevd 等第三方声明 |
 | legacy tokens.css | `E:\算法思考工具` v0.3.9，a1880ad... | MIT | 保留来源注释；只沿用颜色/尺寸/字体族 |
 | legacy brand.png / app.ico | 同上 | MIT | 品牌视觉；与旧项目同源，发布前确认品牌归属 |
 | VSCode 源码 | 固定 `c024bfb636e6db359ca29775b88c819866c84863` | MIT | 只读参考与契约重述；未复制 workbench 实现 |
@@ -25,7 +26,7 @@
 
 | 项目 | 许可 | 注意 |
 |---|---|---|
-| debugpy | MIT | 另核 vendored pydevd 等第三方声明 |
+
 | GDB | GPL-3.0-or-later（具体分发需检查例外/附带文件） | 用户提供或按需安装的外部程序；不抄 GDB/GPL 界面实现到 MIT 本体 |
 | vscode-js-debug | MIT | 独立 DAP 入口；传递依赖单独核验 |
 | java-debug | EPL-1.0 | 外置；不得当 MIT 源码并入 |

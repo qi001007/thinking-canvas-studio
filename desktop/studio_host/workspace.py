@@ -69,6 +69,12 @@ class WorkspaceStore:
             })
         return files
 
+    def resolve_file(self, relative_path: str) -> Path:
+        path = self._resolve(relative_path)
+        if not path.is_file():
+            raise WorkspaceError(f"file not found: {relative_path}")
+        return path
+
     def read_text(self, relative_path: str) -> str:
         path = self._resolve(relative_path)
         if not path.is_file():

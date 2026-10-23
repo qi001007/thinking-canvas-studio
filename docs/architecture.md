@@ -19,7 +19,7 @@ flowchart LR
   CORE --> PROJECTOR
 ```
 
-当前 `ScriptedDapAdapter` 是内存中的确定性适配器，不启动进程、不执行用户代码。真实 `debugpy` / GDB / js-debug / java-debug 走同一个 `DapSession`，由受信 supervisor 启动和回收。
+演示路径使用 `ScriptedDapAdapter`（不启动进程）。真实 Python 路径使用 `RealDebugService` + `DapSession` + `WindowsJobObjectSupervisor`：原生确认后签发单次 receipt，Job Object 限制进程时间/内存/进程数，debugpy 通过 loopback DAP 连接。GDB/js-debug/java-debug 仍待接入。
 
 ## 分层与所有权
 
@@ -34,10 +34,10 @@ flowchart LR
 | 桌面壳 | `desktop/app.py` | pywebview、静态服务器、bridge_info、生命周期 | 在 renderer 中启动进程 |
 | 本地桥 | `desktop/studio_host/bridge_server.py` | loopback WS、token、Origin、JSON-RPC allowlist | 暴露 grant/任意路径/任意 DAP |
 | 工作区 | `desktop/studio_host/workspace.py` | 路径约束、原子写、boards | 目录穿越、部分覆盖坏文件 |
-| 调试服务 | `desktop/studio_host/debug_service.py` | DAP → 归一化事件、采集预算、coverage | 把展示字符串当内存 |
+| 调试服务 | `desktop/studio_host/debug_service.py`、`real_debug_service.py` | DAP → 归一化事件、采集预算、coverage | 把展示字符串当内存 |
 | DAP 会话 | `desktop/studio_host/dap_session.py` | request_seq、事件、超时、反向请求默认拒绝 | 把 DAP 当 JSON-RPC |
 | 语言包 | `languages/*/manifest.json` | 扩展名、adapter、launch 模板、状态 | 把运行时打进 exe |
-| 执行策略 | `desktop/studio_host/execution_policy.py` | 默认拒绝、作用域 grant、预算 | 无 supervisor 时放行 |
+| 执行策略 | `execution_policy.py`、`windows_supervisor.py`、`host_approval.py` | 默认拒绝、原生确认 receipt、Job Object 限额、进程树回收 | 无 supervisor 时放行 |
 
 ## 关键 ADR
 
@@ -53,6 +53,8 @@ flowchart LR
 | ADR-008 | 运行默认拒绝，真实 supervisor 前不执行用户代码 | 防止无限制进程；脚本演示明确标记，不冒充真实调试 |
 | ADR-009 | 语言包声明式 manifest | 语言运行时按需安装；首版四语言但逐个验收 |
 | ADR-010 | Trace 剥离临时句柄；布局键与对象身份分离 | 旧句柄不能跨停点；布局稳定不等于对象相同 |
+| ADR-011 | 真实运行：原生确认 → 单次 receipt → GrantAuthority → Job Object | JS 布尔值不能当授权；文件内容 hash 进 config digest；没有 OS 限额不放行 |
+| ADR-012 | debugpy 用 attach 模式（`--wait-for-client` + 目标脚本） | debugpy 1.6.7 CLI 需要目标；DapSession 发 attach；`justMyCode: true` 过滤内部帧 |
 
 ## 一次单步的数据流
 
@@ -73,15 +75,18 @@ flowchart LR
 | WebSocket 桥：token、Origin、allowlist、广播事件 | 已实现并测试 |
 | 工作区读写、boards 原子保存 | 已实现并测试 |
 | 手绘卡片/拖动/记录步骤 | 基础实现；完整笔迹/连线/文本编辑待补 |
-| 真实 debugpy / GDB / JS / Java | 未接入 |
+| 真实 debugpy（Python） | 已接入并测试：断点、单步、locals、list、Job Object 回收 |
+| GDB / JS / Java | 未接入 |
 | LSP/补全/诊断 | 未接入 |
-| 强制超时/CPU/内存/子进程监管 | 未实现；执行策略默认拒绝 |
-| pywebview 真窗口 IME/DPI/崩溃恢复 | 隐藏窗口基础加载通过；IME/DPI/崩溃恢复未验收 |
+| 强制超时/CPU/内存/子进程监管 | Windows Job Object 已实现并测试；Linux 未实现 |
+| pywebview 真窗口 IME/DPI/崩溃恢复 | 隐藏窗口基础加载与真实运行通过；IME/DPI/崩溃恢复未验收 |
 
 ## 已知风险
 
 - Monaco 主包约 3.0 MB（gzip 约 0.8 MB），语言 worker 另计；LSP 接入前必须测体积。
 - `ScriptedDapAdapter` 的变量树是演示数据；不能据此声称真实语言支持。
 - 连续运行的完整动画尚未解决；当前只保证停点快照。
+- Windows Job Object 不是文件/网络沙箱；只限制进程资源，运行前仍需用户确认。
+- debugpy 断点只在启动时下发；运行中改断点尚未同步。
 - 手绘编辑器功能范围明显小于旧版；旧版的笔迹/橡皮/连线清理尚未移植。
 - 桌面桥 token 由 pywebview `bridge_info` 提供；窗口 API 注入慢时需要等待，不能把“窗口出现”当“桥可用”。

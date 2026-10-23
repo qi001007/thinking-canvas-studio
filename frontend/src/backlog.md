@@ -5,5 +5,6 @@
 - [x] SceneCanvas 自动适配、卡片/边、差异高亮、手绘拖动；手绘工具新增卡片。
 - [x] HostClient：DemoHost 与 WebSocketHost；桌面 bridge_info 等待；`__studioBridge` 仅测试注入。
 - [x] 手绘模式隐藏调试面板/控制台，检查器只显示手绘对象。
-- [ ] 真实窗口 IME/DPI/快捷键；LSP；完整手绘笔迹/连线/文本。
+- [x] 桌面“真实运行”按钮：原生确认 → WS `debug.startReal` → 真实调试标记/变量/画布。
+- [ ] 真实窗口 IME/DPI/快捷键；运行中改断点；LSP；完整手绘笔迹/连线/文本。
 - [ ] 真实 adapter 的懒加载变量树与 Watch/REPL。

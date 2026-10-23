@@ -4,13 +4,14 @@ interface TopbarProps {
 	readonly state: StudioState;
 	readonly onMode: (mode: StudioMode) => void;
 	readonly onStart: () => void;
+	readonly onStartReal: () => void;
 	readonly onContinue: () => void;
 	readonly onStep: (kind: 'over' | 'into' | 'out') => void;
 	readonly onStop: () => void;
 	readonly onSave: () => void;
 }
 
-export function Topbar({ state, onMode, onStart, onContinue, onStep, onStop, onSave }: TopbarProps) {
+export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep, onStop, onSave }: TopbarProps) {
 	const stopped = state.debug.sessionState === 'stopped';
 	const canControl = stopped && !!state.selectedFrameId;
 	const hasSession = !!state.session && state.debug.sessionState !== 'ended';
@@ -39,9 +40,16 @@ export function Topbar({ state, onMode, onStart, onContinue, onStep, onStop, onS
 			</div>
 			<div className="run-controls">
 				{state.mode === 'debug' && !hasSession && (
-					<button type="button" className="btn btn-primary" onClick={onStart} disabled={state.running}>
-						<span className="run-triangle" /> 运行演示
-					</button>
+					<>
+						{state.hostMode === 'desktop' && (
+							<button type="button" className="btn btn-primary" onClick={onStartReal} disabled={state.running} title="debugpy + Windows Job Object；会弹出原生确认">
+								<span className="run-triangle" /> 真实运行
+							</button>
+						)}
+						<button type="button" className={state.hostMode === 'desktop' ? 'btn' : 'btn btn-primary'} onClick={onStart} disabled={state.running}>
+							运行演示
+						</button>
+					</>
 				)}
 				{state.mode === 'debug' && hasSession && (
 					<>
@@ -57,6 +65,7 @@ export function Topbar({ state, onMode, onStart, onContinue, onStep, onStop, onS
 				{state.mode === 'manual' && <span className="manual-mode-note">手绘模式 · 自动保存</span>}
 				<button type="button" className="btn btn-quiet" onClick={onSave} disabled={!dirty} title="保存文件">保存</button>
 				{state.session?.scripted && <span className="demo-badge" title="脚本化数据；未执行用户代码">脚本演示</span>}
+				{state.session && !state.session.scripted && <span className="live-badge">真实调试</span>}
 			</div>
 		</header>
 	);

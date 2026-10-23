@@ -11,3 +11,7 @@
 - [ ] 真实 `ExecutionSupervisor`（Windows Job Object/等效）与 debugpy adapter。
 - [ ] GDB/js-debug/java-debug、LSP、Memory/Disassembly capability。
 - [ ] trace 持久化、恢复与旧画板导入。
+- [x] `windows_supervisor.py`：Windows Job Object 时间/内存/CPU/进程数 + wall timeout；debugpy 启动/回收；超时测试通过。
+- [x] `real_debug_service.py` + `socket_transport.py`：debugpy attach、断点、locals、list 子项、单步、停止清理。
+- [x] `host_approval.py`：单次 120 秒 receipt；`host_service.py` 把源文件 SHA-256、程序、断点、解释器、cwd、限额绑定到 config digest。
+- [ ] Linux cgroup/rlimit；运行中改断点；更多容器/异常/共享引用；真窗口人工确认。

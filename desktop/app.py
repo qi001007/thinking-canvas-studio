@@ -37,15 +37,52 @@ class EventRelay:
 class DesktopApi:
     """Only these methods are exposed to the renderer through pywebview."""
 
-    def __init__(self, port: int, token: str) -> None:
+    def __init__(self, port: int, token: str, service: HostService) -> None:
         self._port = port
         self._token = token
+        self._service = service
 
     def bridge_info(self) -> dict[str, Any]:
         return {"port": self._port, "token": self._token, "mode": "desktop"}
 
     def app_info(self) -> dict[str, Any]:
         return {"name": "Thinking Canvas Studio", "version": "0.1.0", "mode": "desktop"}
+
+    def approve_run(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Show a native confirmation; issue a single-use receipt only after Yes."""
+        if not isinstance(request, dict):
+            return {"approved": False, "error": "invalid request"}
+        program = request.get("program")
+        breakpoints = request.get("breakpoints", [])
+        if not isinstance(program, str) or not isinstance(breakpoints, list):
+            return {"approved": False, "error": "invalid program or breakpoints"}
+        try:
+            prepared = self._service.prepare_run(program, breakpoints)
+        except Exception as exc:
+            return {"approved": False, "error": str(exc)}
+        import webview
+
+        window = webview.windows[0] if webview.windows else None
+        if window is None:
+            return {"approved": False, "error": "no desktop window"}
+        limits = prepared["limits"]
+        message = (
+            f"目标：{prepared['program']}\n"
+            f"工作区：{self._service.workspace_root}\n"
+            f"解释器：{prepared['interpreter']}\n"
+            f"断点：{prepared['breakpoints'] or '无（将直接运行到结束）'}\n"
+            f"限制：{limits['timeoutSeconds']:.0f} 秒墙钟 / "
+            f"{limits['memoryBytes'] // (1024 * 1024)} MB / "
+            f"CPU {limits['cpuSeconds']:.0f} 秒 / "
+            f"{limits['processCount']} 个进程\n\n"
+            "只有点击“确定”才会启动受监督的 debugpy 进程。"
+        )
+        if not window.create_confirmation_dialog("确认运行真实代码", message):
+            return {"approved": False}
+        try:
+            return self._service.issue_run_approval(program, breakpoints)
+        except Exception as exc:
+            return {"approved": False, "error": str(exc)}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -112,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     webview.create_window(
         "Thinking Canvas Studio",
         url,
-        js_api=DesktopApi(bridge.port, bridge.token),
+        js_api=DesktopApi(bridge.port, bridge.token, service),
         width=1450,
         height=900,
         min_size=(1100, 700),

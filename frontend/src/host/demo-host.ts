@@ -95,6 +95,10 @@ export class DemoHostClient implements HostClient {
 		};
 	}
 
+	async startRealDebug(): Promise<never> {
+		throw new Error('真实调试只在桌面窗口可用；浏览器预览使用脚本演示。');
+	}
+
 	async stopDebug(): Promise<void> {
 		if (!this.started) return;
 		this.started = false;

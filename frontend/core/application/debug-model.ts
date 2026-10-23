@@ -1,4 +1,4 @@
-import type { CapabilitySet, RunId, SessionId, StackFrameSnapshot, ThreadExecutionState, ThreadId } from '../domain/contracts.ts';
+import type { CapabilitySet, Coverage, RunId, SessionId, StackFrameSnapshot, ThreadExecutionState, ThreadId } from '../domain/contracts.ts';
 
 export interface DebugModelState {
 	readonly runId?: RunId;
@@ -23,7 +23,7 @@ export type DebugEvent =
 	| { readonly type: 'threadAdded'; readonly runId: RunId; readonly sessionId: SessionId; readonly threadId: ThreadId; readonly name: string }
 	| { readonly type: 'threadStopped'; readonly runId: RunId; readonly sessionId: SessionId; readonly threadId: ThreadId; readonly allThreadsStopped?: boolean }
 	| { readonly type: 'threadResumed'; readonly runId: RunId; readonly sessionId: SessionId; readonly threadId: ThreadId; readonly allThreadsContinued?: boolean }
-	| { readonly type: 'framesLoaded'; readonly runId: RunId; readonly sessionId: SessionId; readonly threadId: ThreadId; readonly stopEpoch: number; readonly frames: readonly StackFrameSnapshot[]; readonly label?: string };
+	| { readonly type: 'framesLoaded'; readonly runId: RunId; readonly sessionId: SessionId; readonly threadId: ThreadId; readonly stopEpoch: number; readonly frames: readonly StackFrameSnapshot[]; readonly label?: string; readonly coverage?: Coverage };
 
 export const initialDebugModelState: DebugModelState = {
 	sessionState: 'inactive',

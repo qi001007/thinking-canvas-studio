@@ -66,6 +66,7 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 				state={state}
 				onMode={setMode}
 				onStart={() => void store.startDebug()}
+				onStartReal={() => void store.startRealDebug()}
 				onContinue={() => void store.continueDebug()}
 				onStep={kind => void store.stepDebug(kind)}
 				onStop={() => void store.stopDebug()}

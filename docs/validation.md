@@ -1,6 +1,6 @@
 # 验证记录
 
-日期：2026-10-23。环境：Windows，Node 24.12.0，npm 11.6.2，Python 3.11.4，Edge 155（无头 CDP），pywebview 6.2.1，websockets 17.1。
+日期：2026-10-23。环境：Windows，Node 24.12.0，npm 11.6.2，Python 3.11.4，Edge 155（无头 CDP），pywebview 6.2.1，websockets 17.1，debugpy 1.6.7。
 
 ## 本轮验证
 
@@ -8,22 +8,25 @@
 |---|---|---|
 | `npm run typecheck` | 通过 | React/TS/Monaco 严格类型检查 |
 | `npm test` | 19 项通过 | 生命周期、投影、卡片、单元格 diff、手绘步骤、预算 |
-| `python -m unittest discover -s desktop/studio_host/tests -t desktop -v` | 46 项通过 | 策略、DAP 帧、桥、工作区、语言包、脚本 DAP、WS 集成 |
+| `python -m unittest discover -s desktop/studio_host/tests -t desktop -v` | 50 项通过 | 策略、DAP 帧、桥、工作区、语言包、脚本 DAP、WS、真实 debugpy、Job Object 超时 |
 | `npm run build` | 通过 | Monaco 主包约 3.0 MB，gzip 约 0.8 MB |
 | `python desktop/app.py --smoke` | 通过 | 桥端口、工作区 3 个文件、app.info |
 | 浏览器 1680×1050（无头 Edge + CDP） | 通过 | Monaco、卡片、变量树、时间线、步过差异、手绘加卡/记录 |
 | 浏览器 → Python WS 桥 → 脚本 DAP | 通过 | `debug.start`、`framesLoaded`、`debug.step`；epoch 1→3；seen 数据更新 |
-| 真窗口 pywebview（隐藏） | 基础加载通过 | WebView2 加载 dist；bridge_info 注入；4 张卡片；IME/DPI/快捷键/崩溃恢复未验收 |
-| 真实 debugpy/GDB/JS/Java | 未执行 | 没有受信 supervisor；默认拒绝 |
+| 真窗口 pywebview（隐藏） | 加载 + 原生确认 + 真实运行通过 | WebView2 加载 dist；bridge_info；原生确认框点击“确定”；debugpy 停点/步过；4 张卡片、真实变量；IME/DPI/快捷键/崩溃恢复未验收 |
+| 真实 debugpy | 通过 | fixture 断点、locals、list 子项、单步 total 0→1、停止清理；Job Object 限额；真实 UI 步过后 `seen={5:0}`、行 7→8 |
+| Job Object wall timeout | 通过 | 1 秒限额终止目标；测试使用自含 fixture |
+| GDB/JS/Java | 未执行 | 只有语言 manifest；每种语言单独验收 |
 | 用户代码执行 | 未执行 | 脚本化适配器；没有启动目标进程 |
 
 ## 本轮的判定边界
 
-- 界面里的“脚本演示”是脚本化 DAP 数据；不是真实语言调试。
-- 浏览器通过不等于 pywebview 窗口通过；桌面壳代码已写，但未做本轮真窗验收。
+- 浏览器预览的“脚本演示”是脚本化 DAP 数据；桌面窗口的“真实运行”是 debugpy。
+- 浏览器通过不等于 pywebview 窗口通过；隐藏窗口真实运行 + 原生确认框自动点击通过，但 IME/DPI 与人工操作仍未验收。
 - 手绘编辑器只有基础卡片/拖动/步骤；旧版笔迹/连线/文本能力未移植。
+- 运行中修改断点尚未同步；断点只在启动时下发。
 - 连续运行中的每次赋值没有采集；只保存已发生的暂停快照。
-- 没有 supervisor，因此“运行”不会执行用户代码。
+- 没有 Windows Job Object 或原生确认时，真实运行不放行；Linux 监管未实现。
 
 ## 已覆盖的失败路径
 
@@ -36,4 +39,4 @@
 
 ## 发布声明边界
 
-可声明：**有可运行、经单测与浏览器/桥链路验证的底座。** 不可声明：真实 Python/C/C++/TS/Java 调试已可用、pywebview 真窗口已验收、完整内存/张量追踪、沙箱已实现。
+可声明：**Python 的真实 debugpy 调试在 Windows Job Object 限额下可用；底座、脚本演示与桥均经测试。** 不可声明：C/C++/TS/Java 调试已可用、原生确认框已人工验收、IME/DPI 已验收、完整内存/张量追踪、文件/网络沙箱已实现。

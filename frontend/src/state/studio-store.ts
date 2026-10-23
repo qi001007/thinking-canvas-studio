@@ -146,9 +146,10 @@ export class StudioStore {
 					{ id: 'bp-1', source: 'main.py', line: 7, enabled: true },
 					{ id: 'bp-2', source: 'main.py', line: 9, enabled: false }
 				],
-				status: app.mode === 'demo' ? '演示宿主已连接' : '桌面宿主已连接'
+				status: app.mode === 'demo' ? '演示宿主已连接' : '桌面宿主已连接 · 点击真实运行'
 			});
-			await this.startDebug();
+			if (app.mode === 'demo') await this.startDebug();
+			else this.refreshScene();
 		} catch (error) {
 			this.set({
 				ready: true,
@@ -166,12 +167,64 @@ export class StudioStore {
 
 	async startDebug(): Promise<void> {
 		if (this.state.running) return;
-		this.set({ mode: 'debug', status: '正在启动演示会话…' });
+		this.set({ mode: 'debug', running: true, snapshots: [], snapshotIndex: -1, status: '正在启动演示会话…' });
 		try {
 			const session = await this.host.startDebug();
 			this.set({ session: { ...session, scripted: session.scripted ?? true }, running: true, status: '演示会话运行中' });
 		} catch (error) {
 			this.set({ running: false, status: `启动失败：${errorMessage(error)}` });
+		}
+	}
+
+	async startRealDebug(): Promise<void> {
+		if (this.state.hostMode !== 'desktop') {
+			this.set({ status: '真实调试只在桌面窗口可用；浏览器预览使用脚本演示。' });
+			return;
+		}
+		const api = window.pywebview?.api;
+		if (!api?.approve_run) {
+			this.set({ status: '桌面审批接口未就绪；请稍等后重试。' });
+			return;
+		}
+		if (this.state.running) return;
+		const program = this.state.activeFile;
+		if (this.state.editorText !== this.state.savedText) {
+			await this.saveFile();
+			if (this.state.editorText !== this.state.savedText) {
+				this.set({ running: false, status: '保存失败，未运行真实调试。' });
+				return;
+			}
+		}
+		const breakpoints = this.state.breakpoints
+			.filter(item => item.enabled && item.source === program)
+			.map(item => item.line);
+		this.set({
+			mode: 'debug',
+			running: true,
+			snapshots: [],
+			snapshotIndex: -1,
+			selectedFrameId: undefined,
+			status: '等待原生确认…'
+		});
+		try {
+			const approval = await api.approve_run({ program, breakpoints });
+			if (!approval.approved || !approval.receiptId) {
+				this.set({ running: false, status: approval.error ? `未运行：${approval.error}` : '已取消真实运行' });
+				return;
+			}
+			const session = await this.host.startRealDebug({
+				receiptId: approval.receiptId,
+				program,
+				breakpoints
+			});
+			this.set({
+				session: { ...session, scripted: false },
+				running: true,
+				mode: 'debug',
+				status: '真实调试运行中'
+			});
+		} catch (error) {
+			this.set({ running: false, status: `真实运行失败：${errorMessage(error)}` });
 		}
 	}
 
@@ -374,7 +427,7 @@ export class StudioStore {
 			patch.selectedThreadId = event.threadId;
 			patch.selectedFrameId = selected?.id;
 			patch.running = false;
-			const snapshot = this.snapshotFrom(debug, event.label);
+			const snapshot = this.snapshotFrom(debug, event.label, event.coverage);
 			if (snapshot) {
 				patch.snapshots = [...before.snapshots, snapshot];
 				patch.snapshotIndex = -1;
@@ -387,7 +440,7 @@ export class StudioStore {
 		}
 	}
 
-	private snapshotFrom(model: DebugModelState, label: string | undefined): TraceSnapshot | undefined {
+	private snapshotFrom(model: DebugModelState, label: string | undefined, coverage?: Coverage): TraceSnapshot | undefined {
 		if (!model.runId || !model.sessionId) return undefined;
 		const frames = Object.values(model.threads).flatMap(thread => thread.frames);
 		const sequence = this.state.snapshots.length + 1;
@@ -398,9 +451,9 @@ export class StudioStore {
 			capturedAt: new Date().toISOString(),
 			runId: model.runId,
 			sessionId: model.sessionId,
-			coverage: frames.length > 0
+			coverage: coverage ?? (frames.length > 0
 				? { state: 'complete', knownMissing: [] }
-				: { state: 'unknown', reason: 'No frame was captured.', knownMissing: ['frames'] },
+				: { state: 'unknown', reason: 'No frame was captured.', knownMissing: ['frames'] }),
 			frames
 		});
 	}

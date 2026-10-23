@@ -8,6 +8,7 @@ import type {
 	FileEntry,
 	HostClient,
 	LanguagePackage,
+	RealRunRequest,
 	ThreadStopContext,
 	VariablePage
 } from '@/host/types';
@@ -80,6 +81,14 @@ export class WebSocketHostClient implements HostClient {
 
 	async startDebug(): Promise<DebugStartResult> {
 		return this.request<DebugStartResult>('debug.start', {});
+	}
+
+	async startRealDebug(request: RealRunRequest): Promise<DebugStartResult> {
+		return this.request<DebugStartResult>('debug.startReal', {
+			receiptId: request.receiptId,
+			program: request.program,
+			breakpoints: [...request.breakpoints],
+		});
 	}
 
 	async stopDebug(): Promise<void> {

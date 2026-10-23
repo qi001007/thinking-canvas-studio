@@ -13,7 +13,7 @@ class LanguagePackageTests(unittest.TestCase):
         self.assertEqual({item.id for item in packages}, {"python", "cpp", "typescript", "java"})
         python = next(item for item in packages if item.id == "python")
         self.assertEqual(python.adapter, "debugpy")
-        self.assertEqual(python.status, "demo")
+        self.assertEqual(python.status, "available")
         self.assertIn(".py", python.extensions)
         self.assertIn("program", python.launch)
 

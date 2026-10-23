@@ -227,7 +227,7 @@ export function SceneCanvas({
 						<span />
 					</div>
 					<p>{mode === 'debug' ? '等待第一个停点' : '还没有卡片'}</p>
-					<small>{mode === 'debug' ? '运行演示会话后，运行时会在这里生成结构卡片' : '从左侧手绘工具添加卡片，或切换到调试模式'}</small>
+					<small>{mode === 'debug' ? '点击“真实运行”或“运行演示”后，运行时会在这里生成结构卡片' : '从左侧手绘工具添加卡片，或切换到调试模式'}</small>
 				</div>
 			)}
 			<div className="canvas-zoom">

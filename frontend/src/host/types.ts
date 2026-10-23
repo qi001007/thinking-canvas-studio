@@ -39,6 +39,12 @@ export interface DebugStartResult {
 	readonly scripted?: boolean;
 }
 
+export interface RealRunRequest {
+	readonly receiptId: string;
+	readonly program: string;
+	readonly breakpoints: readonly number[];
+}
+
 export interface VariablePage {
 	readonly start?: number;
 	readonly count?: number;
@@ -60,6 +66,7 @@ export interface HostClient {
 	loadManualBoard(): Promise<ManualBoard>;
 	saveManualBoard(board: ManualBoard): Promise<void>;
 	startDebug(): Promise<DebugStartResult>;
+	startRealDebug(request: RealRunRequest): Promise<DebugStartResult>;
 	stopDebug(): Promise<void>;
 	continueDebug(threadId: string): Promise<void>;
 	stepDebug(threadId: string, kind: 'over' | 'into' | 'out'): Promise<void>;

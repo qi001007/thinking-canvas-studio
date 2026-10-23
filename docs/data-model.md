@@ -107,7 +107,9 @@ workspace/
 | `languages.list` | 语言包 manifest |
 | `workspace.list/readText/writeText` | 文件列表与文本读写 |
 | `boards.load/save` | 手绘画板 |
-| `debug.start/stop/continue/step/pause` | 会话控制 |
+| `debug.start` | 启动脚本演示 |
+| `debug.startReal` | 用单次 approval receipt 启动真实 debugpy |
+| `debug.stop/continue/step/pause` | 会话控制 |
 | `debug.stackFrames/scopes/variables` | 缓存/懒加载读取 |
 
 Host → 渲染器使用 JSON-RPC 通知：
@@ -122,5 +124,5 @@ Host → 渲染器使用 JSON-RPC 通知：
 1. 在 `languages/<id>/manifest.json` 声明 adapter、扩展名、launch 模板与状态。
 2. 实现受信 `ExecutionSupervisor`（Windows Job Object / Linux cgroup 或等效），并让 `ExecutionPolicy.enforces()` 只在真实限制生效时返回 `True`。
 3. 用 supervisor 启动 adapter，把双向字节流交给 `DapSession`；不要暴露原始 DAP 给 renderer。
-4. `DemoDebugService` 保留为演示/回归；真实服务应与它共享归一化事件结构。
+4. `DemoDebugService` 保留为演示/回归；`RealDebugService` 已接 Python debugpy，其他语言应复用它的事件/采集结构。
 5. 每个适配器单独记录 capabilities、错误路径、断点位置、变量分页和清理证据；不能用 Python 成功代替其他语言。

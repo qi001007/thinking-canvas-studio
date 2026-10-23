@@ -2,8 +2,15 @@ import { DemoHostClient } from '@/host/demo-host';
 import type { HostClient } from '@/host/types';
 import { WebSocketHostClient, type BridgeInfo } from '@/host/ws-host';
 
+interface RunApproval {
+	readonly approved: boolean;
+	readonly receiptId?: string;
+	readonly error?: string;
+}
+
 interface DesktopBridgeApi {
 	bridge_info(): Promise<BridgeInfo>;
+	approve_run(request: { readonly program: string; readonly breakpoints: readonly number[] }): Promise<RunApproval>;
 }
 
 declare global {

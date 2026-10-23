@@ -28,6 +28,7 @@ ALLOWED_METHODS = frozenset({
     "boards.load",
     "boards.save",
     "debug.start",
+    "debug.startReal",
     "debug.stop",
     "debug.continue",
     "debug.step",

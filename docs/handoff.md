@@ -1,6 +1,6 @@
 # 交接说明
 
-更新：2026-10-23。当前是 **可运行底座**，真实适配器待填。
+更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy 已接通，其余语言待填。
 
 ## 先读
 
@@ -32,7 +32,11 @@ desktop/
   app.py          pywebview 入口、静态服务器、bridge_info
   studio_host/
     bridge_server.py   WS JSON-RPC、token/Origin/allowlist
-    host_service.py    方法分发、工作区/语言/调试服务
+    host_service.py    方法分发、真实运行审批、工作区/语言/调试服务
+    host_approval.py   单次、限时、绑定 scope 的审批 receipt
+    windows_supervisor.py Job Object 限额 + debugpy 启动/回收
+    real_debug_service.py 真实 debugpy attach/采集
+    socket_transport.py  loopback DAP socket
     workspace.py       安全路径、原子写、boards
     language_packages.py manifest 加载
     dap_session.py     DAP request/event/reverse-request
@@ -51,11 +55,11 @@ docs/
 4. `framesLoaded` → `createTraceSnapshot` → `projectSnapshot` → `SceneCanvas`；Timeline 追加；Inspector 显示变量/栈。
 5. 步过/继续 → `threadResumed`/`threadStopped`/`framesLoaded`，`stopEpoch` 递增，旧句柄失效。
 
-## 填真实适配器的顺序
+## 添加其他语言适配器的顺序
 
-1. **Supervisor 先于 adapter。** 实现受信 `ExecutionSupervisor`，让 `ExecutionPolicy.enforces()` 只在真实限制生效时返回 `True`；没有它不得启动 debugpy/GDB。
+1. **复用 supervisor/审批。** Python 路径已经证明原生确认 → receipt → GrantAuthority → Job Object。新语言必须走同一条受信链路；不能在前端传布尔值放行。
 2. **复用 DapSession。** 用 supervisor 启动 adapter，把双向字节流接入 `DapSession`；不要绕过它直接发原始 DAP。
-3. **新建真实 DebugService。** 可复制 `DemoDebugService` 的事件/采集结构，替换 `ScriptedDapAdapter`；保持 `runStarted`、`threadStopped`、`framesLoaded` 的 epoch 约定。
+3. **新建 `RealDebugService` 变体。** 复用 `real_debug_service.py` 的归一化事件/采集/预算结构；按语言调整 launch/attach、变量类型分类、作用域过滤。
 4. **语言包。** 在 `languages/<id>/manifest.json` 写 adapter、扩展名、launch 模板；真实安装状态不要伪造。
 5. **验收。** 每种语言独立记录 capabilities、断点位置、变量分页、错误路径、进程清理；不能用 Python 成功代替其他语言。
 
@@ -80,7 +84,7 @@ UI 改动需启动 Vite 并用真实浏览器/窗口点过；只看 diff 不算�
 
 ## 下一个任务
 
-**真窗口验收 + Python debugpy 垂直闭环。** 先证明 pywebview 窗口能加载 renderer、`bridge_info` 能挂上、IME/DPI/快捷键正常；再接 debugpy + supervisor。不要在真实适配器之前继续堆面板或四语言。
+**真窗口人工验收 + 真实采集增强。** 先让主人实际点一次原生确认框，测 IME/DPI/快捷键/崩溃恢复；再补运行中改断点、嵌套函数/共享引用/循环引用/异常、更多容器与 trace 持久化。之后才接 GDB/js-debug/java-debug/LSP。
 
 ## 禁止
 

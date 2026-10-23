@@ -3,11 +3,11 @@
   "name": "Python",
   "extensions": [".py", ".pyi"],
   "adapter": "debugpy",
-  "status": "demo",
+  "status": "available",
   "launch": {
     "request": "launch",
     "program": "${file}",
     "console": "internalConsole"
   },
-  "notes": "演示适配器已接通；真实 debugpy 启动仍需受信 supervisor 与显式授权。"
+  "notes": "真实 debugpy 已接通；桌面宿主用原生确认 + Windows Job Object 限额启动。"
 }
