@@ -35,7 +35,8 @@ DebugSnapshot --采集/投影--> SceneDto
 - `pointer`：引用/目标；
 - `tensor`：shape、dtype、预览；
 - `stack-frame`：函数名、源文件、行号；
-- `sticky` / `function`：手绘便签和函数卡。
+- `sticky` / `function`：手绘便签和函数卡；
+- `array/list/dict/set/struct` 可带 `total/truncated`：只画窗口，超出部分显示省略号和数量，不把完整数据塞进卡片。
 
 调试投影只把结构化值做成节点；简单标量留在变量表。节点 `kind` 表示运行语义（`container`/`struct`/`pointer`/...），`card.kind` 表示视觉形态。布局键由源文件/函数/调用深度/变量路径生成；`valueId` 每次快照可以变化，不用于布局。
 
@@ -91,6 +92,7 @@ TraceSnapshot {
 
 - `createTraceSnapshot` 只保留白名单字段，剥离 `handle`，深拷贝并冻结。
 - `coverage` 为 `complete` / `partial` / `unknown`；预算/深度/分页命中要写 `knownMissing`。
+- `ValueSnapshot/PersistedValue` 增加 `childCount`、`hasMore`：首批可能只加载 100 项，后续用 `debug.variablesPage` 继续读取；值句柄只在当前停点有效。
 - 时间线保存暂停快照；不把“继续运行期间没有采样到”伪造成连续动画。
 
 ## 完整运行与帧
@@ -145,6 +147,8 @@ workspace/
 | `debug.startReal` | 用单次 approval receipt 启动真实 debugpy；`mode: debug/record`；可运行工作台 |
 | `debug.stop/continue/step/pause` | 会话控制 |
 | `debug.stackFrames/scopes/variables` | 缓存/懒加载读取 |
+| `debug.variablesPage` | 按停点句柄分页读取变量子项；返回 `values/hasMore/childCount` |
+| `debug.evaluate` | 在当前栈帧执行 Watch/REPL/hover 表达式；只在授权会话和停点可用 |
 
 Host → 渲染器使用 JSON-RPC 通知：
 

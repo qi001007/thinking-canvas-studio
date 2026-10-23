@@ -39,7 +39,7 @@ export function FileSidebar({ state, onOpenFile, onMode, onAddCard, onCreateWork
 				<span className="board-glyph" aria-hidden="true" />
 				<span className="board-copy">
 					<strong>{state.manualBoard.title}</strong>
-					<small>{state.manualBoard.scene.nodes.length} 个对象 · {state.manualBoard.steps.length} 步</small>
+					<small>{state.manualBoard.scene.nodes.length} 卡 · {state.manualBoard.steps.length} 步</small>
 				</span>
 			</button>
 			<div className="pane-divider" />
@@ -55,13 +55,10 @@ export function FileSidebar({ state, onOpenFile, onMode, onAddCard, onCreateWork
 						<small>继承自 {state.workbench.sourceFile || '源文件'}</small>
 					</span>
 				</button>
-			) : (
-				<p className="sidebar-note">从当前文件创建一个干净的函数/类。运行时会继承源文件的 import 和顶层定义。</p>
-			)}
+			) : null}
 			<div className="pane-divider" />
 			<div className="pane-heading">
 				<span>手绘工具</span>
-				<span className="pane-hint">新增卡片</span>
 			</div>
 			<div className="manual-tools">
 				<button type="button" onClick={() => onAddCard('array')}>数组</button>
@@ -73,7 +70,6 @@ export function FileSidebar({ state, onOpenFile, onMode, onAddCard, onCreateWork
 			<div className="pane-divider" />
 			<div className="pane-heading">
 				<span>语言</span>
-				<span className="pane-hint">适配器</span>
 			</div>
 			<div className="language-list">
 				{state.languages.map(language => (

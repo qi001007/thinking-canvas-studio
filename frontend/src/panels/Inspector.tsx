@@ -1,6 +1,7 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
-import type { PersistedFrame, PersistedValue, StackFrameSnapshot, ValueSnapshot } from '@core/domain/contracts';
-import { currentSnapshot, type Breakpoint, type StudioState } from '@/state/studio-store';
+import { useEffect, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
+import type { PersistedFrame, PersistedValue, RuntimeHandle, StackFrameSnapshot, ValueSnapshot } from '@core/domain/contracts';
+import type { VariablePage, VariablePageResult } from '@/host/types';
+import { currentSnapshot, type Breakpoint, type StudioState, type WatchExpression } from '@/state/studio-store';
 
 type InspectorTab = 'variables' | 'stack' | 'breakpoints';
 type DisplayFrame = PersistedFrame | StackFrameSnapshot;
@@ -12,9 +13,23 @@ interface InspectorProps {
 	readonly onToggleBreakpoint: (source: string, line: number) => void;
 	readonly onRemoveBreakpoint: (id: string) => void;
 	readonly onDeleteNode: (id: string) => void;
+	readonly onAddWatch: (expression: string) => void;
+	readonly onRemoveWatch: (id: string) => void;
+	readonly onToggleWatch: (id: string) => void;
+	readonly onLoadVariablePage: (container: RuntimeHandle, page: VariablePage) => Promise<VariablePageResult>;
 }
 
-export function Inspector({ state, onSelectFrame, onToggleBreakpoint, onRemoveBreakpoint, onDeleteNode }: InspectorProps) {
+export function Inspector({
+	state,
+	onSelectFrame,
+	onToggleBreakpoint,
+	onRemoveBreakpoint,
+	onDeleteNode,
+	onAddWatch,
+	onRemoveWatch,
+	onToggleWatch,
+	onLoadVariablePage
+}: InspectorProps) {
 	const [tab, setTab] = useState<InspectorTab>('variables');
 	const snapshot = currentSnapshot(state);
 	const endedRecord = state.debug.sessionState === 'ended' && !!snapshot;
@@ -28,7 +43,7 @@ export function Inspector({ state, onSelectFrame, onToggleBreakpoint, onRemoveBr
 			<div className="inspector-heading">
 				<div>
 					<span className="eyebrow">INSPECTOR</span>
-					<strong>{state.mode === 'manual' ? '手绘画布' : selected ? `${selected.name} · ${selected.source ?? ''}:${selected.line ?? '—'}` : '调试检查器'}</strong>
+					<strong>{state.mode === 'manual' ? '手绘画布' : selected ? `${selected.name} · ${shortSource(selected.source)}:${selected.line ?? '—'}` : '调试检查器'}</strong>
 				</div>
 				{isHistory && <span className="history-badge">历史</span>}
 			</div>
@@ -53,7 +68,16 @@ export function Inspector({ state, onSelectFrame, onToggleBreakpoint, onRemoveBr
 						<button type="button" role="tab" aria-selected={tab === 'breakpoints'} className={tab === 'breakpoints' ? 'is-active' : ''} onClick={() => setTab('breakpoints')}>断点</button>
 					</div>
 					<div className="inspector-body">
-						{tab === 'variables' && <VariablesPanel frame={selected} />}
+						{tab === 'variables' && (
+								<VariablesPanel
+									state={state}
+									frame={selected}
+									onAddWatch={onAddWatch}
+									onRemoveWatch={onRemoveWatch}
+									onToggleWatch={onToggleWatch}
+									onLoadPage={onLoadVariablePage}
+								/>
+							)}
 						{tab === 'stack' && (
 							<StackPanel
 								state={state}
@@ -78,7 +102,21 @@ export function Inspector({ state, onSelectFrame, onToggleBreakpoint, onRemoveBr
 	);
 }
 
-function VariablesPanel({ frame }: { readonly frame?: DisplayFrame }) {
+function VariablesPanel({
+	state,
+	frame,
+	onAddWatch,
+	onRemoveWatch,
+	onToggleWatch,
+	onLoadPage
+}: {
+	readonly state: StudioState;
+	readonly frame?: DisplayFrame;
+	readonly onAddWatch: (expression: string) => void;
+	readonly onRemoveWatch: (id: string) => void;
+	readonly onToggleWatch: (id: string) => void;
+	readonly onLoadPage: (container: RuntimeHandle, page: VariablePage) => Promise<VariablePageResult>;
+}) {
 	const [expanded, setExpanded] = useState<Set<string>>(new Set());
 	useEffect(() => {
 		if (!frame) {
@@ -95,11 +133,25 @@ function VariablesPanel({ frame }: { readonly frame?: DisplayFrame }) {
 		setExpanded(next);
 	}, [frame?.id, frame?.name]);
 
-	if (!frame) return <EmptyInspector text="没有可检查的栈帧。运行演示会话并停在一个停点后查看变量。" />;
+	const showWatch = state.watchExpressions.length > 0 || state.session?.scripted === false;
+	const canEvaluate = state.debug.sessionState === 'stopped'
+		&& state.debug.capabilities?.evaluate === true
+		&& state.session?.mode !== 'record'
+		&& !!frame;
 	return (
 		<div className="variables-tree">
-			{frame.scopes.length === 0 && <EmptyInspector text="当前帧没有作用域数据。" />}
-			{frame.scopes.map(scope => {
+			{showWatch && (
+				<WatchPanel
+					items={state.watchExpressions}
+					canEvaluate={canEvaluate}
+					onAdd={onAddWatch}
+					onRemove={onRemoveWatch}
+					onToggle={onToggleWatch}
+				/>
+			)}
+			{!frame && <EmptyInspector text="停点后显示变量。" />}
+			{frame && frame.scopes.length === 0 && <EmptyInspector text="当前帧没有变量。" />}
+			{frame && frame.scopes.map(scope => {
 				const scopeKey = `scope:${scope.id}`;
 				const open = expanded.has(scopeKey);
 				return (
@@ -111,11 +163,70 @@ function VariablesPanel({ frame }: { readonly frame?: DisplayFrame }) {
 							<span className="tree-count">{scope.values.length}</span>
 						</button>
 						{open && scope.values.map(value => (
-							<ValueRow key={`${scope.id}:${value.id}`} value={value} path={`${scope.id}:${value.id}`} depth={0} expanded={expanded} onToggle={setExpanded} />
+							<ValueRow
+								key={`${scope.id}:${value.id}`}
+								value={value}
+								path={`${scope.id}:${value.id}`}
+								depth={0}
+								expanded={expanded}
+								onToggle={setExpanded}
+								onLoadPage={onLoadPage}
+							/>
 						))}
 					</div>
 				);
 			})}
+		</div>
+	);
+}
+
+function WatchPanel({
+	items,
+	canEvaluate,
+	onAdd,
+	onRemove,
+	onToggle
+}: {
+	readonly items: readonly WatchExpression[];
+	readonly canEvaluate: boolean;
+	readonly onAdd: (expression: string) => void;
+	readonly onRemove: (id: string) => void;
+	readonly onToggle: (id: string) => void;
+}) {
+	const [draft, setDraft] = useState('');
+	const submit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		if (!draft.trim() || !canEvaluate) return;
+		onAdd(draft);
+		setDraft('');
+	};
+	return (
+		<div className="watch-panel">
+			<form className="watch-form" onSubmit={submit}>
+				<input
+					value={draft}
+					onChange={event => setDraft(event.target.value)}
+					placeholder="监视表达式"
+					disabled={!canEvaluate}
+					aria-label="监视表达式"
+				/>
+				<button type="submit" disabled={!canEvaluate || !draft.trim()}>+</button>
+			</form>
+			{items.map(item => (
+				<div className={`watch-row ${item.error ? 'is-error' : ''}`} key={item.id}>
+					<input
+						type="checkbox"
+						checked={item.enabled}
+						onChange={() => onToggle(item.id)}
+						aria-label={`启用 ${item.expression}`}
+					/>
+					<span className="watch-expression" title={item.expression}>{item.expression}</span>
+					<span className={`watch-value ${item.error ? 'is-error' : item.stale ? 'is-stale' : ''}`} title={item.error ?? item.value}>
+						{item.loading ? '…' : item.error ?? item.value ?? (item.stale ? '运行中' : '—')}
+					</span>
+					<button type="button" className="watch-remove" onClick={() => onRemove(item.id)} aria-label="删除监视">×</button>
+				</div>
+			))}
 		</div>
 	);
 }
@@ -125,17 +236,45 @@ function ValueRow({
 	path,
 	depth,
 	expanded,
-	onToggle
+	onToggle,
+	onLoadPage
 }: {
 	readonly value: DisplayValue;
 	readonly path: string;
 	readonly depth: number;
 	readonly expanded: Set<string>;
 	readonly onToggle: Dispatch<SetStateAction<Set<string>>>;
+	readonly onLoadPage: (container: RuntimeHandle, page: VariablePage) => Promise<VariablePageResult>;
 }) {
 	const key = `value:${path}`;
-	const hasChildren = value.children.length > 0;
+	const [extra, setExtra] = useState<readonly ValueSnapshot[]>([]);
+	const [hasMore, setHasMore] = useState(value.hasMore === true);
+	const [total, setTotal] = useState<number | undefined>(value.childCount ?? undefined);
+	const [loading, setLoading] = useState(false);
+	const [pageError, setPageError] = useState<string>();
+	const children = [...value.children, ...extra];
+	const handle = 'handle' in value ? value.handle : undefined;
+	const hasChildren = children.length > 0 || (hasMore && !!handle);
 	const open = expanded.has(key);
+	const loadMore = async () => {
+		if (!handle || loading) return;
+		setLoading(true);
+		try {
+			const filter = value.containerKind === 'dict' || value.containerKind === 'set'
+				? 'named'
+				: value.containerKind ? 'indexed' : undefined;
+			const result = await onLoadPage(handle, { start: children.length, count: 50, filter });
+			setExtra(current => [...current, ...result.values]);
+			setHasMore(result.hasMore);
+			setTotal(result.childCount ?? total);
+			setPageError(undefined);
+		} catch (error) {
+			setHasMore(false);
+			setPageError(error instanceof Error ? error.message : '分页失败');
+		} finally {
+			setLoading(false);
+		}
+	};
 	return (
 		<div className="tree-branch">
 			<div className="tree-row" style={{ paddingLeft: 10 + depth * 16 }}>
@@ -151,9 +290,20 @@ function ValueRow({
 				{value.type && <span className="tree-type">{value.type}</span>}
 				<span className="tree-value">{value.value}</span>
 			</div>
-			{open && hasChildren && value.children.slice(0, 100).map(child => (
-				<ValueRow key={`${path}:${child.id}`} value={child} path={`${path}:${child.id}`} depth={depth + 1} expanded={expanded} onToggle={onToggle} />
-			))}
+			{open && hasChildren && (
+				<>
+					{children.map(child => (
+						<ValueRow key={`${path}:${child.id}`} value={child} path={`${path}:${child.id}`} depth={depth + 1} expanded={expanded} onToggle={onToggle} onLoadPage={onLoadPage} />
+					))}
+					{loading && <div className="tree-more">加载中…</div>}
+					{pageError && <div className="tree-more is-error">{pageError}</div>}
+					{!loading && hasMore && (
+						<button type="button" className="tree-more" onClick={() => void loadMore()} disabled={!handle}>
+							{handle ? `加载更多 · 已显示 ${children.length}${typeof total === 'number' ? ` / ${total}` : ''}` : `更多未加载 · 已显示 ${children.length}`}
+						</button>
+					)}
+				</>
+			)}
 		</div>
 	);
 }
@@ -171,7 +321,7 @@ function StackPanel({
 	readonly selectedFrameId?: string;
 	readonly onSelectFrame: (threadId: string, frameId: string) => void;
 }) {
-	if (frames.length === 0) return <EmptyInspector text="没有调用栈。运行演示会话后在停点查看。" />;
+	if (frames.length === 0) return <EmptyInspector text="停点后显示调用栈。" />;
 	return (
 		<div className="stack-tree">
 			{isHistory ? (
@@ -229,7 +379,7 @@ function BreakpointsPanel({
 	readonly onToggle: (source: string, line: number) => void;
 	readonly onRemove: (id: string) => void;
 }) {
-	if (breakpoints.length === 0) return <EmptyInspector text="还没有断点。点击编辑器行号左侧的空白处添加。" />;
+	if (breakpoints.length === 0) return <EmptyInspector text="点击行号左侧添加断点。" />;
 	return (
 		<div className="breakpoints-list">
 			{breakpoints.map(breakpoint => (
@@ -243,13 +393,18 @@ function BreakpointsPanel({
 					<button type="button" className="icon-button" onClick={() => onRemove(breakpoint.id)} title="删除断点">×</button>
 				</div>
 			))}
-			<p className="inspector-note">点击编辑器行号左侧的 glyph 区可添加/切换断点。</p>
+			<p className="inspector-note">点击行号左侧切换断点。</p>
 		</div>
 	);
 }
 
 function EmptyInspector({ text }: { readonly text: string }) {
 	return <p className="empty-note inspector-empty">{text}</p>;
+}
+
+function shortSource(source: string | undefined): string {
+	if (!source) return '';
+	return source.split(/[\\/]/).pop() ?? source;
 }
 
 function toggle(key: string, update: Dispatch<SetStateAction<Set<string>>>): void {

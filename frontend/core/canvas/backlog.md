@@ -8,3 +8,4 @@
 - [x] `createManualStep` 克隆 scene；`createTraceSnapshot` 接受运行时帧并剥离句柄。
 - [x] `projectSnapshot` 生成 list/dict/array/struct/pointer/tensor/stack-frame 卡片。
 - [x] 运行时调用栈 calls 边与 origin=runtime；静态结构图/运行时图可切换。
+- [x] 长容器投影：卡片最多 20 项/12 字段，`truncated/total` 供画布显示 `…` 与已显示数量；不再平铺 100 项。

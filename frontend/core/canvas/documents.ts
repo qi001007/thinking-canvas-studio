@@ -80,12 +80,14 @@ export function normalizeCoverage(coverage: Coverage): Coverage {
 }
 
 function stripRuntimeFields(value: PersistedValue | ValueSnapshot): PersistedValue {
-	const { id, name, value: displayValue, type, structure, containerKind, tensorMetadata, collectorIdentity, children } = value;
+	const { id, name, value: displayValue, type, structure, containerKind, tensorMetadata, collectorIdentity, children, childCount, hasMore } = value;
 	return {
 		id, name, value: displayValue, type, structure, containerKind,
 		tensorMetadata: tensorMetadata ? cloneMetadata(tensorMetadata) : undefined,
 		collectorIdentity: collectorIdentity ? { collector: collectorIdentity.collector, objectId: collectorIdentity.objectId } : undefined,
-		children: children.map(stripRuntimeFields)
+		children: children.map(stripRuntimeFields),
+		childCount,
+		hasMore
 	};
 }
 

@@ -68,15 +68,15 @@ const STATIC_CARD_WIDTH: Partial<Record<CardData['kind'], number>> = {
 };
 
 const CARD_HEIGHT: Record<CardData['kind'], number> = {
-	array: 130,
+	array: 150,
 	matrix: 160,
-	list: 145,
-	set: 125,
-	dict: 140,
+	list: 165,
+	set: 150,
+	dict: 160,
 	variable: 90,
 	node: 90,
 	text: 90,
-	struct: 150,
+	struct: 165,
 	pointer: 90,
 	tensor: 140,
 	'stack-frame': 84,
@@ -260,8 +260,8 @@ export function SceneCanvas({
 						<span />
 						<span />
 					</div>
-					<p>{mode === 'debug' ? '等待第一个停点' : '还没有卡片'}</p>
-					<small>{mode === 'debug' ? '点击“真实运行”或“运行演示”后，运行时会在这里生成结构卡片' : '从左侧手绘工具添加卡片，或切换到调试模式'}</small>
+					<p>{mode === 'debug' ? '等待停点' : '空画布'}</p>
+					<small>{mode === 'debug' ? '运行后显示结构' : '从左侧添加卡片'}</small>
 				</div>
 			)}
 			<div className="canvas-zoom">
@@ -301,56 +301,68 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 		case 'array':
 		case 'matrix':
 			return (
-				<div className={`canvas-grid canvas-grid-${card.kind}`}>
-					{card.rows.map((row, rowIndex) => (
-						<div className="canvas-grid-row" key={rowIndex}>
-							{row.map((cell, columnIndex) => (
-								<span
-									className={`canvas-cell ${changedParts?.has(`cell:${rowIndex}:${columnIndex}`) ? 'is-changed' : ''}`}
-									key={`${rowIndex}:${columnIndex}`}
-								>
-									{cell.value}
-								</span>
-							))}
-						</div>
-					))}
-				</div>
+				<>
+					<div className={`canvas-grid canvas-grid-${card.kind}`}>
+						{card.rows.map((row, rowIndex) => (
+							<div className="canvas-grid-row" key={rowIndex}>
+								{row.map((cell, columnIndex) => (
+									<span
+										className={`canvas-cell ${changedParts?.has(`cell:${rowIndex}:${columnIndex}`) ? 'is-changed' : ''}`}
+										key={`${rowIndex}:${columnIndex}`}
+									>
+										{cell.value}
+									</span>
+								))}
+							</div>
+						))}
+					</div>
+					{card.truncated && <MoreRow shown={card.rows.reduce((count, row) => count + row.length, 0)} total={card.total} />}
+				</>
 			);
 		case 'list':
 		case 'set':
-			if (card.items.length === 0) return <div className="canvas-empty-inline">空{card.kind === 'set' ? '集合' : '列表'}</div>;
+			if (card.items.length === 0 && !card.truncated) return <div className="canvas-empty-inline">空{card.kind === 'set' ? '集合' : '列表'}</div>;
 			return (
-				<div className="canvas-items">
-					{card.items.map((item, index) => (
-						<div className={`canvas-item ${changedParts?.has(`item:${index}`) ? 'is-changed' : ''}`} key={index}>
-							<span className="canvas-item-index">{index}</span>
-							<span>{item.value}</span>
-						</div>
-					))}
-				</div>
+				<>
+					<div className="canvas-items">
+						{card.items.map((item, index) => (
+							<div className={`canvas-item ${changedParts?.has(`item:${index}`) ? 'is-changed' : ''}`} key={index}>
+								<span className="canvas-item-index">{index}</span>
+								<span>{item.value}</span>
+							</div>
+						))}
+					</div>
+					{card.truncated && <MoreRow shown={card.items.length} total={card.total} />}
+				</>
 			);
 		case 'dict':
-			if (card.entries.length === 0) return <div className="canvas-empty-inline">空字典</div>;
+			if (card.entries.length === 0 && !card.truncated) return <div className="canvas-empty-inline">空字典</div>;
 			return (
-				<div className="canvas-items">
-					{card.entries.map(entry => (
-						<div className={`canvas-item canvas-dict-row ${changedParts?.has(`entry:${entry.key}`) ? 'is-changed' : ''}`} key={entry.key}>
-							<span className="canvas-dict-key">{entry.key}</span>
-							<span>{entry.value}</span>
-						</div>
-					))}
-				</div>
+				<>
+					<div className="canvas-items">
+						{card.entries.map(entry => (
+							<div className={`canvas-item canvas-dict-row ${changedParts?.has(`entry:${entry.key}`) ? 'is-changed' : ''}`} key={entry.key}>
+								<span className="canvas-dict-key">{entry.key}</span>
+								<span>{entry.value}</span>
+							</div>
+						))}
+					</div>
+					{card.truncated && <MoreRow shown={card.entries.length} total={card.total} />}
+				</>
 			);
 		case 'struct':
 			return (
-				<div className="canvas-items">
-					{card.fields.map(field => (
-						<div className={`canvas-item ${changedParts?.has(`field:${field.name}`) ? 'is-changed' : ''}`} key={field.name}>
-							<span className="canvas-field-name">{field.name}</span>
-							<span>{field.value}</span>
-						</div>
-					))}
-				</div>
+				<>
+					<div className="canvas-items">
+						{card.fields.map(field => (
+							<div className={`canvas-item ${changedParts?.has(`field:${field.name}`) ? 'is-changed' : ''}`} key={field.name}>
+								<span className="canvas-field-name">{field.name}</span>
+								<span>{field.value}</span>
+							</div>
+						))}
+					</div>
+					{card.truncated && <MoreRow shown={card.fields.length} total={card.total} />}
+				</>
 			);
 		case 'pointer':
 			return <div className="canvas-big-value">{card.reference ?? card.target ?? 'null'}</div>;
@@ -363,7 +375,7 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 				</div>
 			);
 		case 'stack-frame':
-			return <div className="canvas-frame-loc">{card.source ?? 'source'} : {card.line ?? '—'}</div>;
+			return <div className="canvas-frame-loc">{shortSource(card.source)}:{card.line ?? '—'}</div>;
 		case 'module':
 			return <div className="canvas-module"><span>{card.path}</span>{card.source && <small>继承 · {card.source}</small>}</div>;
 		case 'class':
@@ -480,6 +492,20 @@ function staticGraphPositions(scene: SceneDto, layout: LayoutViewState, graphVie
 		}
 	}
 	return positions;
+}
+
+function shortSource(source: string | undefined): string {
+	if (!source) return 'source';
+	return source.split(/[\\/]/).pop() ?? source;
+}
+
+function MoreRow({ shown, total }: { readonly shown: number; readonly total?: number }) {
+	return (
+		<div className="canvas-more">
+			<span>…</span>
+			<small>{typeof total === 'number' ? `共 ${total} 项 · 已显示 ${shown}` : `已显示 ${shown} 项`}</small>
+		</div>
+	);
 }
 
 function compactList(items: readonly string[], limit = 8): string {

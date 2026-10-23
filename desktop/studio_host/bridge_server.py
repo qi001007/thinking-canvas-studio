@@ -41,6 +41,8 @@ ALLOWED_METHODS = frozenset({
     "debug.stackFrames",
     "debug.scopes",
     "debug.variables",
+    "debug.variablesPage",
+    "debug.evaluate",
 })
 
 

@@ -6,12 +6,13 @@ interface TopbarProps {
 	readonly onStart: () => void;
 	readonly onStartReal: (mode: 'debug' | 'record') => void;
 	readonly onContinue: () => void;
+	readonly onPause: () => void;
 	readonly onStep: (kind: 'over' | 'into' | 'out') => void;
 	readonly onStop: () => void;
 	readonly onSave: () => void;
 }
 
-export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep, onStop, onSave }: TopbarProps) {
+export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onPause, onStep, onStop, onSave }: TopbarProps) {
 	const stopped = state.debug.sessionState === 'stopped';
 	const canControl = stopped && !!state.selectedFrameId;
 	const hasSession = !!state.session && state.debug.sessionState !== 'ended';
@@ -39,7 +40,7 @@ export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep
 					<span className="file-chip-dot" />
 					<span>{activeLabel || '未打开文件'}</span>
 					{state.mode === 'manual' && <em>手绘 · {state.manualBoard.steps.length} 步</em>}
-					{state.mode === 'debug' && <em>{modeLabel} · {state.snapshots.length} 个停点</em>}
+					{state.mode === 'debug' && <em>{modeLabel} · {state.snapshots.length} 帧</em>}
 				</div>
 			</div>
 			<div className="run-controls">
@@ -62,7 +63,9 @@ export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep
 				)}
 				{state.mode === 'debug' && hasSession && (
 					<>
-						<button type="button" className="btn" onClick={onContinue} disabled={!canControl || state.running} title="继续运行到下一个停点">继续</button>
+						{state.running
+							? <button type="button" className="btn" onClick={onPause} title="暂停在当前位置">暂停</button>
+							: <button type="button" className="btn" onClick={onContinue} disabled={!canControl} title="继续运行到下一个停点">继续</button>}
 						<div className="step-group" role="group" aria-label="单步">
 							<button type="button" className="btn btn-compact" onClick={() => onStep('over')} disabled={!canControl || state.running} title="单步跳过">步过</button>
 							<button type="button" className="btn btn-compact" onClick={() => onStep('into')} disabled={!canControl || state.running} title="单步进入">步入</button>

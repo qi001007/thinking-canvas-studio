@@ -86,6 +86,8 @@ export interface ValueSnapshot {
 	readonly tensorMetadata?: Readonly<Record<string, MetadataValue>>;
 	readonly collectorIdentity?: CollectorIdentity;
 	readonly children: readonly ValueSnapshot[];
+	readonly childCount?: number;
+	readonly hasMore?: boolean;
 }
 
 export interface Coverage {
@@ -110,6 +112,8 @@ export interface PersistedValue {
 	readonly tensorMetadata?: Readonly<Record<string, MetadataValue>>;
 	readonly collectorIdentity?: CollectorIdentity;
 	readonly children: readonly PersistedValue[];
+	readonly childCount?: number;
+	readonly hasMore?: boolean;
 }
 
 export interface PersistedFrame {
@@ -153,11 +157,11 @@ export interface CardField {
 
 /** Shared visual payload for manual cards and runtime-projected cards. */
 export type CardData =
-	| { readonly kind: 'array' | 'matrix'; readonly rows: readonly (readonly CardCell[])[] }
-	| { readonly kind: 'list' | 'set'; readonly items: readonly CardCell[] }
-	| { readonly kind: 'dict'; readonly entries: readonly CardEntry[] }
+	| { readonly kind: 'array' | 'matrix'; readonly rows: readonly (readonly CardCell[])[]; readonly total?: number; readonly truncated?: boolean }
+	| { readonly kind: 'list' | 'set'; readonly items: readonly CardCell[]; readonly total?: number; readonly truncated?: boolean }
+	| { readonly kind: 'dict'; readonly entries: readonly CardEntry[]; readonly total?: number; readonly truncated?: boolean }
 	| { readonly kind: 'variable' | 'node' | 'text'; readonly value: string }
-	| { readonly kind: 'struct'; readonly fields: readonly CardField[] }
+	| { readonly kind: 'struct'; readonly fields: readonly CardField[]; readonly total?: number; readonly truncated?: boolean }
 	| { readonly kind: 'pointer'; readonly target?: string; readonly reference?: string }
 	| { readonly kind: 'tensor'; readonly shape: readonly number[]; readonly dtype?: string; readonly preview?: string }
 	| { readonly kind: 'stack-frame'; readonly name: string; readonly source?: string; readonly line?: number }

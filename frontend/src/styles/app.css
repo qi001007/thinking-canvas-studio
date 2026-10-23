@@ -1047,6 +1047,116 @@ button {
 	color: var(--faint);
 }
 
+.tree-more {
+	display: block;
+	width: calc(100% - 20px);
+	margin: 2px 0 4px 20px;
+	padding: 3px 6px;
+	border: 1px dashed var(--line);
+	border-radius: 5px;
+	background: transparent;
+	color: var(--muted);
+	font-size: 9px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.tree-more:disabled {
+	cursor: default;
+	color: var(--faint);
+}
+
+.tree-more.is-error {
+	border-color: transparent;
+	color: var(--danger, #b45454);
+}
+
+.watch-panel {
+	padding: 0 4px 8px;
+	margin-bottom: 6px;
+	border-bottom: 1px solid var(--line);
+}
+
+.watch-form {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 4px;
+}
+
+.watch-form input {
+	flex: 1;
+	min-width: 0;
+	height: 24px;
+	padding: 0 7px;
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	background: var(--surface);
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-size: 9px;
+}
+
+.watch-form button {
+	width: 24px;
+	height: 24px;
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	background: var(--surface);
+	color: var(--muted);
+	cursor: pointer;
+}
+
+.watch-row {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 22px;
+	font-size: 9px;
+}
+
+.watch-row input[type="checkbox"] {
+	margin: 0;
+	flex: 0 0 auto;
+}
+
+.watch-expression {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-family: var(--font-mono);
+	color: var(--accent-ink);
+}
+
+.watch-value {
+	max-width: 45%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-family: var(--font-mono);
+	color: var(--ink);
+}
+
+.watch-value.is-error {
+	color: var(--danger, #b45454);
+}
+
+.watch-value.is-stale {
+	color: var(--faint);
+	font-style: italic;
+}
+
+.watch-remove {
+	border: 0;
+	background: transparent;
+	padding: 0 2px;
+	color: var(--faint);
+	cursor: pointer;
+	font-size: 12px;
+	line-height: 1;
+}
+
 .tree-tag {
 	font-size: 8px;
 	background: var(--amber-soft);

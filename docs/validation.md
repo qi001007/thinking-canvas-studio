@@ -8,7 +8,7 @@
 |---|---|---|
 | `npm run typecheck` | 通过 | React/TS/Monaco 严格类型检查 |
 | `npm test` | 19 项通过 | 生命周期、投影、卡片、单元格 diff、手绘步骤、预算 |
-| `python -m unittest discover -s desktop/studio_host/tests -t desktop -v` | 55 项通过 | 策略、DAP 帧、桥、工作区、语言包、脚本 DAP、WS、真实 debugpy、Job Object 超时、静态分析/工作台、TS 分析、自动记录 |
+| `python -m unittest discover -s desktop/studio_host/tests -t desktop -v` | 56 项通过 | 策略、DAP 帧、桥、工作区、语言包、脚本 DAP、WS、真实 debugpy、100,000 项变量分页/求值、Job Object 超时、静态分析/工作台、TS 分析、自动记录 |
 | `npm run build` | 通过 | Monaco 主索引约 3.09 MB，gzip 约 820 KB |
 | `python desktop/app.py --smoke` | 通过 | 桥端口、工作区 3 个文件、app.info |
 | 浏览器 1680×1050（无头 Edge + CDP） | 通过 | Monaco、卡片、变量树、时间线、步过差异、手绘加卡/记录 |
@@ -19,6 +19,8 @@
 | 静态图三视图 | 通过 | 最终构建 + 全新 Python 桥 + 无头 Edge 1680×1050：总览 9 卡 @62%、类结构 6 卡 @100%、类数据 4 卡 @100%、方法结构 7 卡 @87%；卡片边界在画布内 |
 | TS/JS 静态图 | 通过 | `fixture.ts` 总览 3 卡、结构 8 卡；使用 TypeScript compiler API；非 Python 真实运行按钮禁用 |
 | 大文件渐进展开 | 通过 | `static_analysis.py`：总览 11 节点 @50%、类结构 17 卡 @73%、类数据 17 节点，coverage partial；聚焦方法可继续查看 |
+| 变量分页 / Watch / REPL | 通过 | 真实 debugpy `main.py:7`：Watch `len(nums)=1000`，REPL 返回 `1000`，`nums` 从 100 项加载到 151 项；截图 `docs/screenshots/debug-watch.png` |
+| 100,000 项数组 | 通过 | 首批 100 项；`debug.variablesPage` 从第 100 项继续返回 5 项；`len(nums)=100000`，不一次性渲染完整数据 |
 | 帧轴时间线 | 通过 | Demo 步过后 2 帧、滑块当前值 1；500 帧上限 |
 | 完整运行记录 | 通过 | fixture 自动记录 12 帧，包含循环行 3/4、函数行 2/5、测试行 8/9；自动继续到结束 |
 | 回放 | 通过 | 时间线播放按钮从帧 0 开始，1.2 秒后滑块移动、暂停可用；速度选项 0.5–4× |
@@ -34,6 +36,9 @@
 - 静态 AST 是启发式；大型类/递归/跨文件图用聚焦、成员上限和 `partial` 兜底，尚未自动聚合；工作台运行会执行源文件顶层代码。
 - 静态图三视图有阅读上限（总览 18 符号、类 6 字段 + 6 方法、类数据 12、方法 36）；隐藏的成员仍可在聚焦列表中选择。
 - TS/JS 只用 TypeScript compiler API 做单文件静态分析；没有类型检查、跨文件解析或运行时数据。
+- Watch/REPL/分页求值会执行用户代码；真实运行的原生确认已明确包含该授权，记录模式禁用 Watch。
+- 列表/数组的后续分页通过 `evaluate` 切片读取；字典/集合在 DAP 不支持分页时会拒绝继续，不会重复返回第一页。
+- 画布仍是平铺栈帧卡/变量卡，函数大方框和语义边尚未实现。
 - 运行中修改断点尚未同步；断点只在启动时下发。
 - 连续运行中的每次赋值没有采集；只保存已发生的暂停快照。
 - 没有 Windows Job Object 或原生确认时，真实运行不放行；Linux 监管未实现。

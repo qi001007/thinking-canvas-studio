@@ -73,6 +73,7 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 				onStart={() => void store.startDebug()}
 				onStartReal={mode => void store.startRealDebug(mode)}
 				onContinue={() => void store.continueDebug()}
+				onPause={() => void store.pauseDebug()}
 				onStep={kind => void store.stepDebug(kind)}
 				onStop={() => void store.stopDebug()}
 				onSave={() => void store.saveFile()}
@@ -95,8 +96,7 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 									<span>{activeLabel || '未打开文件'}</span>
 									{dirty && <span className="dirty-dot" title="有未保存修改" />}
 								</div>
-								<span className="tabbar-hint">{languageForPath(state.activeFile)} · {state.breakpoints.filter(item => item.source === state.activeFile && item.enabled).length} 个断点</span>
-							</div>
+															</div>
 							<MonacoEditor
 								path={state.activeFile || 'untitled.py'}
 								value={state.editorText}
@@ -132,9 +132,13 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 								<div className="canvas-title">
 									<span className="canvas-title-icon" aria-hidden="true" />
 									<strong>{state.mode === 'manual' ? '手绘画布' : state.canvasView === 'static' ? '静态结构' : '运行时画布'}</strong>
-									<span className="canvas-subtitle" title="结构视图按聚焦分层；聚焦类看成员，聚焦方法看内部">
-										{state.scene.nodes.length} 个对象 · {state.scene.edges.length} 条关系
-										{state.mode === 'debug' && state.canvasView === 'static' && state.staticStats ? ` · ${state.staticStats.functions} 函数 / ${state.staticStats.classes} 类` : ''}
+									<span
+										className="canvas-subtitle"
+										title={state.mode === 'debug' && state.canvasView === 'static' && state.staticStats
+											? `结构视图 · ${state.staticStats.functions} 函数 / ${state.staticStats.classes} 类；聚焦类看成员，聚焦方法看内部`
+											: '画布对象与关系'}
+									>
+										{state.scene.nodes.length} 卡 · {state.scene.edges.length} 边
 									</span>
 								</div>
 								<div className="canvas-meta">
@@ -193,7 +197,7 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 							/>
 						</section>
 					</div>
-					{state.mode === 'debug' && <ConsolePanel state={state} />}
+					{state.mode === 'debug' && <ConsolePanel state={state} onEvaluate={expression => void store.evaluateConsole(expression)} />}
 					<Timeline
 						state={state}
 						onSelectSnapshot={index => store.selectSnapshot(index)}
@@ -211,6 +215,10 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 						onToggleBreakpoint={(source, line) => store.toggleBreakpoint(source, line)}
 						onRemoveBreakpoint={id => store.removeBreakpoint(id)}
 						onDeleteNode={id => store.deleteManualNode(id)}
+						onAddWatch={expression => store.addWatch(expression)}
+						onRemoveWatch={id => store.removeWatch(id)}
+						onToggleWatch={id => store.toggleWatch(id)}
+						onLoadVariablePage={(container, page) => store.loadVariablePage(container, page)}
 					/>
 				)}
 			</div>

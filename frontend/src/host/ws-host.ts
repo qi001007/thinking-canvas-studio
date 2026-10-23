@@ -13,7 +13,9 @@ import type {
 	StaticAnalysis,
 	WorkbenchInfo,
 	ThreadStopContext,
-	VariablePage
+	VariablePage,
+	VariablePageResult,
+	EvaluateResult
 } from '@/host/types';
 
 interface BridgeInfo {
@@ -137,6 +139,14 @@ export class WebSocketHostClient implements HostClient {
 
 	async getVariables(container: RuntimeHandle, page?: VariablePage): Promise<readonly ValueSnapshot[]> {
 		return this.request<readonly ValueSnapshot[]>('debug.variables', { container, page });
+	}
+
+	async getVariablePage(container: RuntimeHandle, page: VariablePage): Promise<VariablePageResult> {
+		return this.request<VariablePageResult>('debug.variablesPage', { container, page });
+	}
+
+	async evaluate(frame: RuntimeHandle, expression: string, context: 'watch' | 'repl' | 'hover'): Promise<EvaluateResult> {
+		return this.request<EvaluateResult>('debug.evaluate', { frame, expression, context });
 	}
 
 	onDebugEvent(listener: (event: DebugEvent) => void): () => void {

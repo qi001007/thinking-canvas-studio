@@ -120,16 +120,34 @@ class DemoDebugService:
     async def get_scopes(self, frame: dict[str, Any]) -> list[dict[str, Any]]:
         reference = frame.get("reference") if isinstance(frame, dict) else None
         for item in self._last_frames:
-            if item.get("handle", {}).get("reference") == reference:
+            if (item.get("handle") or {}).get("reference") == reference:
                 return item.get("scopes", [])
         return []
 
     async def get_variables(self, container: dict[str, Any]) -> list[dict[str, Any]]:
         reference = container.get("reference") if isinstance(container, dict) else None
         for value in _walk_values(self._last_frames):
-            if value.get("handle", {}).get("reference") == reference:
+            if (value.get("handle") or {}).get("reference") == reference:
                 return value.get("children", [])
         return []
+
+    async def get_variable_page(self, container: dict[str, Any], page: dict[str, Any]) -> dict[str, Any]:
+        values = await self.get_variables(container)
+        start = page.get("start", 0) if isinstance(page.get("start"), int) else 0
+        count = page.get("count", 100) if isinstance(page.get("count"), int) else 100
+        start = max(0, start)
+        count = max(1, min(count, 200))
+        window = values[start:start + count]
+        return {
+            "values": window,
+            "start": start,
+            "count": len(window),
+            "childCount": len(values),
+            "hasMore": start + len(window) < len(values),
+        }
+
+    async def evaluate(self, _frame: dict[str, Any], _expression: str, _context: str = "watch") -> dict[str, Any]:
+        raise RuntimeError("scripted demo does not evaluate expressions")
 
     async def _advance(self, command: str) -> None:
         session = self._session

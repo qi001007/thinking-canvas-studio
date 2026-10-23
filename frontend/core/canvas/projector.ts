@@ -161,6 +161,11 @@ function layoutKey(path: readonly (string | number)[]): string {
 
 function cardFromValue(value: PersistedValue | ValueSnapshot): CardData {
 	const shape = tensorShape(value.tensorMetadata);
+	const total = value.childCount ?? (value.hasMore ? undefined : value.children.length);
+	const overflowFor = (shown: number) => {
+		const truncated = value.hasMore === true || shown < value.children.length || (typeof total === 'number' && total > shown);
+		return truncated ? total !== undefined ? { total, truncated: true as const } : { truncated: true as const } : {};
+	};
 	if (value.structure === 'tensor' || shape.length > 0) {
 		return {
 			kind: 'tensor',
@@ -174,28 +179,34 @@ function cardFromValue(value: PersistedValue | ValueSnapshot): CardData {
 	}
 	const container = inferContainerKind(value);
 	if (container === 'dict') {
-		return { kind: 'dict', entries: value.children.map(child => ({ key: child.name, value: child.value })) };
+		const entries = value.children.slice(0, 12);
+		return { kind: 'dict', entries: entries.map(child => ({ key: child.name, value: child.value })), ...overflowFor(entries.length) };
 	}
 	if (container === 'set') {
-		return { kind: 'set', items: value.children.map(child => ({ value: child.value })) };
+		const items = value.children.slice(0, 20);
+		return { kind: 'set', items: items.map(child => ({ value: child.value })), ...overflowFor(items.length) };
 	}
 	if (container === 'array' || container === 'matrix') {
 		const nested = value.children.some(child => child.children.length > 0);
+		const rows = value.children.slice(0, container === 'matrix' || nested ? 6 : 20);
 		if (container === 'matrix' || nested) {
 			return {
 				kind: 'matrix',
-				rows: value.children.map(child => child.children.length > 0
-					? child.children.map(item => ({ value: item.value }))
-					: [{ value: child.value }])
+				rows: rows.map(child => child.children.length > 0
+					? child.children.slice(0, 8).map(item => ({ value: item.value }))
+					: [{ value: child.value }]),
+				...overflowFor(rows.length)
 			};
 		}
-		return { kind: 'array', rows: [value.children.map(child => ({ value: child.value }))] };
+		return { kind: 'array', rows: [rows.map(child => ({ value: child.value }))], ...overflowFor(rows.length) };
 	}
 	if (container === 'list' || container === 'tuple') {
-		return { kind: 'list', items: value.children.map(child => ({ value: child.value })) };
+		const items = value.children.slice(0, 20);
+		return { kind: 'list', items: items.map(child => ({ value: child.value })), ...overflowFor(items.length) };
 	}
 	if (value.structure === 'struct' || value.structure === 'heap') {
-		return { kind: 'struct', fields: value.children.map(child => ({ name: child.name, value: child.value, type: child.type })) };
+		const fields = value.children.slice(0, 12);
+		return { kind: 'struct', fields: fields.map(child => ({ name: child.name, value: child.value, type: child.type })), ...overflowFor(fields.length) };
 	}
 	return { kind: 'variable', value: value.value };
 }

@@ -18,9 +18,11 @@
 
 - [x] `workbench.py`：干净工作台 + 隐藏 context 模块；源文件 import/顶层定义继承；源文件 hash 绑定 receipt。
 - [x] `static_analysis.py`：AST 函数/类/参数/字段/变量/调用/循环/import/继承/returns/flows；预算与语法错误处理。
-- [x] 静态分析/工作台测试；Python 共 55 项通过。
+- [x] 静态分析/工作台测试；Python 共 56 项通过。
 - [x] `graph_views.py`：总览/结构/数据、聚焦、类成员一层 + 方法下钻、阅读上限 18/12/36；方法标题带类名。
 - [x] TS/JS 静态分析接入：`_analyze_js` 调 Node 分析器，再走 `graph_views`；非 .py 真实运行拒绝。
 - [ ] 递归/超大类自动聚合、跨文件符号解析；C/C++/Java 分析器；TS workbench/js-debug。
 - [x] 完整运行自动逐行断点/自动 continue；帧轴回放/调速；fixture 12 帧集成测试通过。
 - [x] `RealDebugService(auto_record)`：自动逐行断点/自动 continue/500 帧上限；自动记录集成测试。
+- [x] P0a：`debug.variablesPage` 变量分页（10 万项 fixture）、`debug.evaluate` Watch/REPL（停点代际校验）、`allowEvaluate` 写入 config digest 与原生确认、暂停按钮接入。
+- [ ] P0b：条件/日志/异常断点、setVariable、重启、线程/栈分页、完整能力矩阵。

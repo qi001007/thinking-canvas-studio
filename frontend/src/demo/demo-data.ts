@@ -16,7 +16,7 @@ export const demoCapabilities: CapabilitySet = {
 	stackTrace: true,
 	scopes: true,
 	variables: true,
-	evaluate: true,
+	evaluate: false,
 	setVariable: false,
 	readMemory: false
 };

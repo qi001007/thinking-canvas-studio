@@ -85,6 +85,19 @@ export interface VariablePage {
 	readonly filter?: 'named' | 'indexed';
 }
 
+export interface VariablePageResult {
+	readonly values: readonly ValueSnapshot[];
+	readonly start: number;
+	readonly count: number;
+	readonly childCount?: number;
+	readonly hasMore: boolean;
+}
+
+export interface EvaluateResult {
+	readonly value: string;
+	readonly type?: string;
+}
+
 export interface ConsoleLine {
 	readonly id: string;
 	readonly kind: 'stdout' | 'stderr' | 'info' | 'error';
@@ -112,6 +125,8 @@ export interface HostClient {
 	getStackFrames(context: ThreadStopContext): Promise<readonly StackFrameSnapshot[]>;
 	getScopes(frame: RuntimeHandle): Promise<readonly ScopeSnapshot[]>;
 	getVariables(container: RuntimeHandle, page?: VariablePage): Promise<readonly ValueSnapshot[]>;
+	getVariablePage(container: RuntimeHandle, page: VariablePage): Promise<VariablePageResult>;
+	evaluate(frame: RuntimeHandle, expression: string, context: 'watch' | 'repl' | 'hover'): Promise<EvaluateResult>;
 	onDebugEvent(listener: (event: DebugEvent) => void): () => void;
 	onConsole(listener: (line: ConsoleLine) => void): () => void;
 	dispose?(): void;

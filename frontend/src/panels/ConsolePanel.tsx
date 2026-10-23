@@ -1,8 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { StudioState } from '@/state/studio-store';
 
-export function ConsolePanel({ state }: { readonly state: StudioState }) {
+export function ConsolePanel({ state, onEvaluate }: { readonly state: StudioState; readonly onEvaluate: (expression: string) => void }) {
 	const [open, setOpen] = useState(true);
+	const [draft, setDraft] = useState('');
+	const canEvaluate = state.debug.sessionState === 'stopped'
+		&& state.debug.capabilities?.evaluate === true
+		&& state.session?.mode !== 'record';
+	const submit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		if (!draft.trim() || !canEvaluate) return;
+		onEvaluate(draft);
+		setDraft('');
+	};
 	const bodyRef = useRef<HTMLDivElement | null>(null);
 	useEffect(() => {
 		const body = bodyRef.current;
@@ -15,7 +25,7 @@ export function ConsolePanel({ state }: { readonly state: StudioState }) {
 					<span className={`tree-chevron ${open ? 'is-open' : ''}`} />
 					控制台
 				</button>
-				<span className="console-hint">演示输出 · 只读</span>
+				<span className="console-hint">输出</span>
 			</header>
 			{open && (
 				<div className="console-body" ref={bodyRef}>
@@ -25,7 +35,18 @@ export function ConsolePanel({ state }: { readonly state: StudioState }) {
 					))}
 				</div>
 			)}
-			{open && <div className="console-input"><span>REPL</span><input disabled placeholder="REPL 尚未启用；真实适配器接入后再开放" /></div>}
+			{open && (
+				<form className="console-input" onSubmit={submit}>
+					<span>REPL</span>
+					<input
+						value={draft}
+						onChange={event => setDraft(event.target.value)}
+						disabled={!canEvaluate}
+						placeholder={canEvaluate ? '输入表达式，回车求值' : '停点后可求值'}
+						aria-label="REPL 表达式"
+					/>
+				</form>
+			)}
 		</section>
 	);
 }

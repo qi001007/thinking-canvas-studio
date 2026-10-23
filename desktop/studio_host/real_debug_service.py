@@ -19,7 +19,8 @@ ConsoleSink = Callable[[dict[str, Any]], Awaitable[None] | None]
 MAX_VALUES = 500
 MAX_DEPTH = 3
 MAX_FRAMES = 6
-SPECIAL_VARIABLES = frozenset({"special variables", "function variables", "len()"})
+VARIABLE_PAGE_SIZE = 100
+SPECIAL_VARIABLES = frozenset({"special variables", "function variables", "len()", "MoreItemsRange"})
 
 
 class RealDebugError(RuntimeError):
@@ -42,6 +43,7 @@ class RealDebugService:
         self._paused = False
         self._stop_count = 0
         self._last_frames: list[dict[str, Any]] = []
+        self._value_frames: dict[int, int] = {}
         self._visited_values = 0
         self._missing: set[str] = set()
         self._initialized = asyncio.Event()
@@ -49,6 +51,7 @@ class RealDebugService:
         self._capabilities: dict[str, Any] = {}
         self._record_mode = False
         self._max_frames = 500
+        self._allow_evaluate = False
 
     @property
     def running(self) -> bool:
@@ -63,6 +66,7 @@ class RealDebugService:
         auto_record: bool = False,
         trace_lines: list[int] | None = None,
         max_frames: int = 500,
+        allow_evaluate: bool = False,
     ) -> dict[str, Any]:
         if self._lock is None:
             self._lock = asyncio.Lock()
@@ -79,12 +83,14 @@ class RealDebugService:
             self._paused = False
             self._stop_count = 0
             self._last_frames = []
+            self._value_frames = {}
             self._visited_values = 0
             self._missing.clear()
             self._initialized = asyncio.Event()
             self._capabilities = {}
             self._record_mode = auto_record
             self._max_frames = max(1, min(max_frames, 500))
+            self._allow_evaluate = allow_evaluate
             trace_breakpoints = list(trace_lines or []) if auto_record else list(breakpoints)
             if auto_record and not trace_breakpoints:
                 raise RealDebugError("完整运行没有可记录的可执行行")
@@ -96,7 +102,7 @@ class RealDebugService:
                     "type": "runStarted",
                     "runId": self._run_id,
                     "sessionId": self._session_id,
-                    "capabilities": _normalized_capabilities(capabilities),
+                    "capabilities": _normalized_capabilities(capabilities, self._allow_evaluate),
                 })
                 attach_task = asyncio.create_task(self._session.request("attach", {"justMyCode": True}))
                 await asyncio.wait_for(self._initialized.wait(), timeout=10.0)
@@ -115,7 +121,7 @@ class RealDebugService:
                     "sessionId": self._session_id,
                     "runId": self._run_id,
                     "threadId": self._thread_id,
-                    "capabilities": _normalized_capabilities(capabilities),
+                    "capabilities": _normalized_capabilities(capabilities, self._allow_evaluate),
                     "scripted": False,
                     "mode": "record" if auto_record else "debug",
                 }
@@ -165,16 +171,127 @@ class RealDebugService:
     async def get_scopes(self, frame: dict[str, Any]) -> list[dict[str, Any]]:
         reference = frame.get("reference") if isinstance(frame, dict) else None
         for item in self._last_frames:
-            if item.get("handle", {}).get("reference") == reference:
+            if (item.get("handle") or {}).get("reference") == reference:
                 return item.get("scopes", [])
         return []
 
     async def get_variables(self, container: dict[str, Any]) -> list[dict[str, Any]]:
         reference = container.get("reference") if isinstance(container, dict) else None
         for value in _walk_values(self._last_frames):
-            if value.get("handle", {}).get("reference") == reference:
+            if (value.get("handle") or {}).get("reference") == reference:
                 return value.get("children", [])
         return []
+
+    async def get_variable_page(self, container: dict[str, Any], page: dict[str, Any]) -> dict[str, Any]:
+        session = self._session
+        if session is None or not self._paused:
+            raise RealDebugError("variables can only be paged at a stop")
+        reference = self._handle_reference(container, {"variable", "scope"})
+        start = _bounded_int(page.get("start"), 0, 0, 1_000_000)
+        count = _bounded_int(page.get("count"), VARIABLE_PAGE_SIZE, 1, 200)
+        filter_mode = page.get("filter")
+        if filter_mode not in {"named", "indexed"}:
+            filter_mode = None
+        parent = next((value for value in _walk_values(self._last_frames) if (value.get("handle") or {}).get("reference") == reference), None)
+        total = parent.get("childCount") if parent is not None else None
+        container_kind = parent.get("containerKind") if parent is not None else None
+        evaluate_name = parent.get("evaluateName") if parent is not None else None
+        frame_reference = self._value_frames.get(reference)
+        raw: list[dict[str, Any]] = []
+        if start > 0 and evaluate_name and frame_reference is not None and container_kind in {"list", "array", "tuple"}:
+            if not self._allow_evaluate:
+                raise RealDebugError("分页读取该容器需要求值授权")
+            slice_body = await session.request("evaluate", {
+                "expression": f"{evaluate_name}[{start}:{start + count}]",
+                "frameId": frame_reference,
+                "context": "watch",
+            })
+            slice_reference = slice_body.get("variablesReference")
+            if isinstance(slice_reference, int) and not isinstance(slice_reference, bool) and slice_reference > 0:
+                slice_values = await session.request("variables", {
+                    "variablesReference": slice_reference,
+                    "start": 0,
+                    "count": count,
+                })
+                raw = [item for item in slice_values.get("variables", []) if isinstance(item, dict) and not _is_special_variable(item)]
+        elif start == 0:
+            arguments: dict[str, Any] = {
+                "variablesReference": reference,
+                "start": 0,
+                "count": count,
+            }
+            if filter_mode is not None:
+                arguments["filter"] = filter_mode
+            body = await session.request("variables", arguments)
+            raw = [item for item in body.get("variables", []) if isinstance(item, dict) and not _is_special_variable(item)]
+        else:
+            raise RealDebugError("当前适配器不支持该容器的后续分页")
+        values: list[dict[str, Any]] = []
+        for index, variable in enumerate(raw[:count]):
+            record = self._variable_record(variable, index, f"page{start}", [], frame_reference)
+            if start > 0 and container_kind in {"list", "array", "tuple"}:
+                record["name"] = str(start + index)
+                record["id"] = f"value-page{start}-{index}"
+            values.append(record)
+        loaded_end = start + len(values)
+        has_more = loaded_end < total if isinstance(total, int) else len(values) >= count
+        return {
+            "values": values,
+            "start": start,
+            "count": len(values),
+            "childCount": total,
+            "hasMore": has_more,
+        }
+
+    async def evaluate(self, frame: dict[str, Any], expression: str, context: str = "watch") -> dict[str, Any]:
+        if not self._allow_evaluate:
+            raise RealDebugError("evaluate was not authorized for this run")
+        session = self._session
+        if session is None or not self._paused:
+            raise RealDebugError("evaluate is only available at a stop")
+        reference = self._handle_reference(frame, {"frame"})
+        text = expression.strip()
+        if not text:
+            raise RealDebugError("expression is empty")
+        if len(text) > 4000:
+            raise RealDebugError("expression is too long")
+        chosen_context = context if context in {"watch", "repl", "hover"} else "watch"
+        body = await session.request("evaluate", {
+            "expression": text,
+            "frameId": reference,
+            "context": chosen_context,
+        })
+        type_name = body.get("type") if isinstance(body.get("type"), str) else None
+        child_reference = body.get("variablesReference")
+        child_reference = child_reference if isinstance(child_reference, int) and not isinstance(child_reference, bool) else 0
+        structure, container_kind = _classify(type_name, child_reference)
+        handle = _handle(self._session_id, self._run_id, self._epoch, self._thread_id, "variable", child_reference) if child_reference > 0 else None
+        return {
+            "id": f"eval-{uuid.uuid4().hex[:8]}",
+            "name": text,
+            "value": str(body.get("result", ""))[:4000],
+            "type": type_name,
+            "handle": handle,
+            "structure": structure,
+            "containerKind": container_kind,
+            "children": [],
+            "childCount": None if child_reference > 0 else 0,
+            "hasMore": child_reference > 0,
+        }
+
+    def _handle_reference(self, handle: dict[str, Any], kinds: set[str]) -> int:
+        if not isinstance(handle, dict):
+            raise RealDebugError("handle must be an object")
+        if handle.get("sessionId") != self._session_id or handle.get("runId") != self._run_id:
+            raise RealDebugError("handle belongs to another session")
+        if handle.get("stopEpoch") != self._epoch:
+            raise RealDebugError("handle belongs to another stop")
+        if handle.get("kind") not in kinds:
+            raise RealDebugError("handle kind is not valid for this request")
+        reference = handle.get("reference")
+        if not isinstance(reference, int) or isinstance(reference, bool) or reference <= 0:
+            raise RealDebugError("handle reference is invalid")
+        return reference
 
     async def _advance(self, command: str) -> None:
         session = self._session
@@ -272,7 +389,7 @@ class RealDebugService:
                         if scope.get("presentationHint") != "locals" and scope.get("name") != "Locals":
                             continue
                         scope_ref = int(scope.get("variablesReference", 0))
-                        values = await self._read_variables(scope_ref, depth=0, path=f"frame{index}.scope{scope_ref}")
+                        values = await self._read_variables(scope_ref, depth=0, path=f"frame{index}.scope{scope_ref}", frame_reference=frame_id)
                         scopes.append({
                             "id": f"scope-{scope_ref}",
                             "name": str(scope.get("name", "Locals")),
@@ -331,6 +448,7 @@ class RealDebugService:
         path: str,
         filter_mode: str | None = None,
         filter_specials: bool = False,
+        frame_reference: int | None = None,
     ) -> list[dict[str, Any]]:
         session = self._session
         if session is None or reference <= 0 or depth > MAX_DEPTH or self._visited_values >= MAX_VALUES:
@@ -351,7 +469,7 @@ class RealDebugService:
                 self._missing.add("Variable budget reached.")
                 break
             name = str(variable.get("name", f"value{index}"))
-            if filter_specials and name in SPECIAL_VARIABLES:
+            if filter_specials and _is_special_variable(variable):
                 continue
             self._visited_values += 1
             type_name = variable.get("type") if isinstance(variable.get("type"), str) else None
@@ -365,18 +483,43 @@ class RealDebugService:
                 path=f"{path}.{index}",
                 filter_mode=child_filter,
                 filter_specials=container_kind is not None,
+                frame_reference=frame_reference,
             ) if child_reference > 0 else []
-            values.append({
-                "id": f"value-{path}-{index}",
-                "name": name,
-                "value": str(variable.get("value", "")),
-                "type": type_name,
-                "handle": _handle(self._session_id, self._run_id, self._epoch, self._thread_id, "variable", child_reference) if child_reference > 0 else None,
-                "structure": structure,
-                "containerKind": container_kind,
-                "children": children,
-            })
+            values.append(self._variable_record(variable, index, path, children, frame_reference))
         return values
+
+    def _variable_record(
+        self,
+        variable: dict[str, Any],
+        index: int,
+        path: str,
+        children: list[dict[str, Any]],
+        frame_reference: int | None = None,
+    ) -> dict[str, Any]:
+        name = str(variable.get("name", f"value{index}"))
+        type_name = variable.get("type") if isinstance(variable.get("type"), str) else None
+        evaluate_name = variable.get("evaluateName") if isinstance(variable.get("evaluateName"), str) else None
+        child_reference = variable.get("variablesReference")
+        child_reference = child_reference if isinstance(child_reference, int) and not isinstance(child_reference, bool) else 0
+        structure, container_kind = _classify(type_name, child_reference)
+        total = _child_total(variable)
+        loaded = len(children)
+        has_more = total > loaded if total is not None else (child_reference > 0 and loaded >= VARIABLE_PAGE_SIZE)
+        if child_reference > 0 and frame_reference is not None:
+            self._value_frames[child_reference] = frame_reference
+        return {
+            "id": f"value-{path}-{index}",
+            "name": name,
+            "value": str(variable.get("value", "")),
+            "type": type_name,
+            "evaluateName": evaluate_name,
+            "handle": _handle(self._session_id, self._run_id, self._epoch, self._thread_id, "variable", child_reference) if child_reference > 0 else None,
+            "structure": structure,
+            "containerKind": container_kind,
+            "children": children,
+            "childCount": total if total is not None else (loaded if child_reference <= 0 else None),
+            "hasMore": has_more,
+        }
 
     async def _cleanup_after_terminate(self) -> None:
         session = self._session
@@ -419,12 +562,12 @@ class RealDebugService:
             await result
 
 
-def _normalized_capabilities(capabilities: dict[str, Any]) -> dict[str, bool]:
+def _normalized_capabilities(capabilities: dict[str, Any], allow_evaluate: bool = False) -> dict[str, bool]:
     return {
         "stackTrace": True,
         "scopes": True,
         "variables": True,
-        "evaluate": False,
+        "evaluate": allow_evaluate,
         "setVariable": bool(capabilities.get("supportsSetVariable", False)),
         "readMemory": False,
     }
@@ -458,6 +601,27 @@ def _classify(type_name: str | None, variables_reference: int) -> tuple[str | No
     if "tensor" in lowered:
         return "tensor", "tensor"
     return "struct", None
+
+
+def _is_special_variable(variable: dict[str, Any]) -> bool:
+    name = str(variable.get("name", ""))
+    type_name = str(variable.get("type", ""))
+    return name in SPECIAL_VARIABLES or type_name in SPECIAL_VARIABLES or (name == "more" and type_name == "MoreItemsRange")
+
+
+def _child_total(variable: dict[str, Any]) -> int | None:
+    values: list[int] = []
+    for key in ("indexedVariables", "namedVariables"):
+        item = variable.get(key)
+        if isinstance(item, int) and not isinstance(item, bool) and item >= 0:
+            values.append(item)
+    return sum(values) if values else None
+
+
+def _bounded_int(value: Any, fallback: int, minimum: int, maximum: int) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        return fallback
+    return max(minimum, min(value, maximum))
 
 
 def _walk_values(frames: list[dict[str, Any]]):

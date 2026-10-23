@@ -22,7 +22,9 @@ import type {
 	HostClient,
 	LanguagePackage,
 	ThreadStopContext,
-	VariablePage
+	VariablePage,
+	VariablePageResult,
+	EvaluateResult
 } from '@/host/types';
 
 const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -150,6 +152,20 @@ export class DemoHostClient implements HostClient {
 		const start = Math.max(0, page?.start ?? 0);
 		const count = Math.max(1, page?.count ?? 100);
 		return (match?.children ?? []).slice(start, start + count);
+	}
+
+	async getVariablePage(container: RuntimeHandle, page: VariablePage): Promise<VariablePageResult> {
+		const values = flattenValues(buildDemoFrames(this.stepIndex));
+		const match = values.find(item => item.handle?.reference === container.reference);
+		const all = match?.children ?? [];
+		const start = Math.max(0, page.start ?? 0);
+		const count = Math.max(1, Math.min(page.count ?? 100, 200));
+		const window = all.slice(start, start + count);
+		return { values: window, start, count: window.length, childCount: all.length, hasMore: start + window.length < all.length };
+	}
+
+	async evaluate(_frame: RuntimeHandle, _expression: string, _context: 'watch' | 'repl' | 'hover'): Promise<EvaluateResult> {
+		throw new Error('脚本演示不支持表达式求值。');
 	}
 
 	onDebugEvent(listener: (event: DebugEvent) => void): () => void {

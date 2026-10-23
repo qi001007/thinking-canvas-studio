@@ -85,6 +85,44 @@ class RealDebugServiceTests(unittest.IsolatedAsyncioTestCase):
         await self.service.handle("debug.stop", {})
         self.assertTrue(any(event.get("type") == "runEnded" for event in self.events))
 
+    async def test_long_variables_are_paged_and_watch_evaluates_at_stop(self) -> None:
+        (self.root / "fixture.py").write_text(
+            "def inspect(data, marker):\n"
+            "    total = marker + 1\n"
+            "    return data[0]\n"
+            "\n"
+            "if __name__ == '__main__':\n"
+            "    print(inspect(list(range(100000)), 3))\n",
+            encoding="utf-8",
+        )
+        approval = self.service.issue_run_approval("fixture.py", [3])
+        await self.service.handle("debug.startReal", {
+            "receiptId": approval["receiptId"],
+            "program": "fixture.py",
+            "breakpoints": [3],
+        })
+        first = await asyncio.wait_for(self.frames.get(), timeout=20)
+        frame = first["frames"][0]
+        values = {value["name"]: value for value in frame["scopes"][0]["values"]}
+        data = values["data"]
+        self.assertGreaterEqual(len(data["children"]), 100)
+        self.assertTrue(data["hasMore"])
+        page_start = len(data["children"])
+        page = await self.service.handle("debug.variablesPage", {
+            "container": data["handle"],
+            "page": {"start": page_start, "count": 5, "filter": "indexed"},
+        })
+        self.assertEqual(page["start"], page_start)
+        self.assertEqual(len(page["values"]), 5)
+        self.assertTrue(page["values"][0]["value"].isdigit())
+        watch = await self.service.handle("debug.evaluate", {
+            "frame": frame["handle"],
+            "expression": "len(data)",
+        })
+        self.assertEqual(watch["value"], "100000")
+        self.assertEqual(watch["type"], "int")
+        await self.service.handle("debug.stop", {})
+
     async def test_record_mode_builds_a_complete_frame_timeline(self) -> None:
         approval = self.service.issue_run_approval("fixture.py", [], "record")
         result = await self.service.handle("debug.startReal", {

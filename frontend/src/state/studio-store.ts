@@ -7,12 +7,25 @@ import type {
 	CardData,
 	Coverage,
 	NormalizedDebugSnapshot,
+	RuntimeHandle,
 	SceneDto,
 	SessionSnapshot,
 	StackFrameSnapshot,
 	TraceSnapshot
 } from '@core/domain/contracts';
-import type { AppInfo, ConsoleLine, FileEntry, GraphFocusOption, GraphView, HostClient, LanguagePackage, StaticAnalysis, WorkbenchInfo } from '@/host/types';
+import type {
+	AppInfo,
+	ConsoleLine,
+	FileEntry,
+	GraphFocusOption,
+	GraphView,
+	HostClient,
+	LanguagePackage,
+	StaticAnalysis,
+	VariablePage,
+	VariablePageResult,
+	WorkbenchInfo
+} from '@/host/types';
 
 export type StudioMode = 'manual' | 'debug';
 const MAX_SNAPSHOTS = 500;
@@ -36,6 +49,17 @@ export interface StudioSession {
 export interface PlaybackState {
 	readonly playing: boolean;
 	readonly speed: number;
+}
+
+export interface WatchExpression {
+	readonly id: string;
+	readonly expression: string;
+	readonly enabled: boolean;
+	readonly value?: string;
+	readonly type?: string;
+	readonly error?: string;
+	readonly loading?: boolean;
+	readonly stale?: boolean;
 }
 
 export interface StudioState {
@@ -72,6 +96,7 @@ export interface StudioState {
 	readonly breakpoints: readonly Breakpoint[];
 	readonly console: readonly ConsoleLine[];
 	readonly status: string;
+	readonly watchExpressions: readonly WatchExpression[];
 	readonly scene: SceneDto;
 	readonly coverage: Coverage;
 	readonly diff: SceneDiff;
@@ -125,6 +150,7 @@ export function initialState(): StudioState {
 		breakpoints: [],
 		console: [],
 		status: '正在连接宿主…',
+		watchExpressions: [],
 		scene: EMPTY_SCENE,
 		coverage: { state: 'unknown', knownMissing: ['No runtime data.'] },
 		diff: EMPTY_SCENE_DIFF
@@ -136,6 +162,7 @@ export class StudioStore {
 	private readonly listeners = new Set<() => void>();
 	private readonly unsubscribers: Array<() => void> = [];
 	private playbackTimer: ReturnType<typeof setTimeout> | undefined;
+	private watchGeneration = 0;
 
 	constructor(private readonly host: HostClient) {}
 
@@ -262,6 +289,7 @@ export class StudioStore {
 					? (mode === 'record' ? '完整运行记录完成' : '会话已结束')
 					: (mode === 'record' ? '正在记录完整运行…' : '真实调试运行中')
 			});
+			if (!ended && mode !== 'record' && this.state.watchExpressions.length > 0) void this.refreshWatch();
 		} catch (error) {
 			this.set({ running: false, status: `真实运行失败：${errorMessage(error)}` });
 		}
@@ -285,6 +313,16 @@ export class StudioStore {
 		}
 	}
 
+	async pauseDebug(): Promise<void> {
+		if (!this.state.session) return;
+		try {
+			await this.host.pauseDebug(this.state.session.threadId);
+			this.set({ status: '暂停请求已发送' });
+		} catch (error) {
+			this.set({ status: `暂停失败：${errorMessage(error)}` });
+		}
+	}
+
 	async stepDebug(kind: 'over' | 'into' | 'out'): Promise<void> {
 		if (!this.state.session) return;
 		try {
@@ -296,6 +334,86 @@ export class StudioStore {
 
 	selectFrame(threadId: string, frameId: string): void {
 		this.set({ selectedThreadId: threadId, selectedFrameId: frameId });
+		void this.refreshWatch();
+	}
+
+	async loadVariablePage(container: RuntimeHandle, page: VariablePage): Promise<VariablePageResult> {
+		return this.host.getVariablePage(container, page);
+	}
+
+	addWatch(expression: string): void {
+		const text = expression.trim();
+		if (!text || this.state.watchExpressions.length >= 20) return;
+		if (this.state.watchExpressions.some(item => item.expression === text)) return;
+		const item: WatchExpression = { id: `watch-${crypto.randomUUID()}`, expression: text, enabled: true };
+		this.set({ watchExpressions: [...this.state.watchExpressions, item] });
+		void this.refreshWatch();
+	}
+
+	removeWatch(id: string): void {
+		this.set({ watchExpressions: this.state.watchExpressions.filter(item => item.id !== id) });
+	}
+
+	toggleWatch(id: string): void {
+		this.set({
+			watchExpressions: this.state.watchExpressions.map(item => item.id === id ? { ...item, enabled: !item.enabled } : item)
+		});
+		void this.refreshWatch();
+	}
+
+	async refreshWatch(): Promise<void> {
+		const frame = selectedFrame(this.state);
+		const capabilities = this.state.debug.capabilities;
+		const enabled = this.state.watchExpressions.filter(item => item.enabled);
+		if (enabled.length === 0) return;
+		if (!frame || !capabilities?.evaluate || this.state.debug.sessionState !== 'stopped') {
+			this.set({
+				watchExpressions: this.state.watchExpressions.map(item => item.enabled
+					? { ...item, loading: false, stale: true }
+					: item)
+			});
+			return;
+		}
+		const generation = ++this.watchGeneration;
+		this.set({
+			watchExpressions: this.state.watchExpressions.map(item => item.enabled ? { ...item, loading: true } : item)
+		});
+		await Promise.all(enabled.map(async item => {
+			try {
+				const result = await this.host.evaluate(frame.handle, item.expression, 'watch');
+				const current = selectedFrame(this.state);
+				if (this.watchGeneration !== generation || !current || current.handle.stopEpoch !== frame.handle.stopEpoch || current.handle.reference !== frame.handle.reference) return;
+				this.set({
+					watchExpressions: this.state.watchExpressions.map(entry => entry.id === item.id
+						? { ...entry, value: result.value, type: result.type, error: undefined, loading: false, stale: false }
+						: entry)
+				});
+			} catch (error) {
+				const current = selectedFrame(this.state);
+				if (this.watchGeneration !== generation || !current || current.handle.stopEpoch !== frame.handle.stopEpoch || current.handle.reference !== frame.handle.reference) return;
+				this.set({
+					watchExpressions: this.state.watchExpressions.map(entry => entry.id === item.id
+						? { ...entry, value: undefined, error: errorMessage(error), loading: false, stale: false }
+						: entry)
+				});
+			}
+		}));
+	}
+
+	async evaluateConsole(expression: string): Promise<void> {
+		const text = expression.trim();
+		const frame = selectedFrame(this.state);
+		if (!text) return;
+		if (!frame || !this.state.debug.capabilities?.evaluate || this.state.debug.sessionState !== 'stopped') {
+			this.appendConsoleText('求值只在真实调试停点可用。', 'error');
+			return;
+		}
+		try {
+			const result = await this.host.evaluate(frame.handle, text, 'repl');
+			this.appendConsoleText(`> ${text}\n${result.value}`, 'info');
+		} catch (error) {
+			this.appendConsoleText(`> ${text}\n${errorMessage(error)}`, 'error');
+		}
 	}
 
 	selectSnapshot(index: number): void {
@@ -617,10 +735,12 @@ export class StudioStore {
 			patch.running = true;
 			patch.selectedFrameId = undefined;
 			patch.status = '运行中…';
+			patch.watchExpressions = before.watchExpressions.map(item => ({ ...item, loading: false, stale: true }));
 		}
 		if (event.type === 'runEnded') {
 			patch.running = false;
 			patch.status = before.session?.mode === 'record' ? '完整运行记录完成' : '会话已结束';
+			patch.watchExpressions = before.watchExpressions.map(item => ({ ...item, loading: false, stale: true }));
 		}
 		if (event.type === 'framesLoaded') {
 			patch.canvasView = 'runtime';
@@ -642,6 +762,9 @@ export class StudioStore {
 		this.set(patch);
 		if (event.type === 'framesLoaded' || event.type === 'threadResumed' || event.type === 'runEnded') {
 			this.refreshScene();
+		}
+		if (event.type === 'framesLoaded' && this.state.watchExpressions.length > 0 && this.state.session?.mode !== 'record') {
+			void this.refreshWatch();
 		}
 	}
 
@@ -732,6 +855,11 @@ export class StudioStore {
 		} catch (error) {
 			this.set({ status: `画板保存失败：${errorMessage(error)}` });
 		}
+	}
+
+	private appendConsoleText(text: string, kind: ConsoleLine['kind']): void {
+		const line: ConsoleLine = { id: `console-local-${crypto.randomUUID()}`, kind, text };
+		this.set({ console: [...this.state.console, line].slice(-200) });
 	}
 
 	private set(patch: Partial<StudioState>): void {

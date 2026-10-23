@@ -72,6 +72,7 @@ class DesktopApi:
             f"工作区：{self._service.workspace_root}\n"
             f"解释器：{prepared['interpreter']}\n"
             f"断点：{prepared['breakpoints'] or '无（将直接运行到结束）'}\n"
+            "求值：允许在该会话的停点执行 Watch/REPL 表达式（会调用用户代码）\n"
             f"限制：{limits['timeoutSeconds']:.0f} 秒墙钟 / "
             f"{limits['memoryBytes'] // (1024 * 1024)} MB / "
             f"CPU {limits['cpuSeconds']:.0f} 秒 / "

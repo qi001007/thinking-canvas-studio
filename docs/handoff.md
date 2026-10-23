@@ -1,6 +1,6 @@
 # 交接说明
 
-更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy、函数工作台、三视图静态结构图（Python/TS-JS）、完整运行记录与回放已接通，C/C++/Java 与其余真实调试适配器待填。
+更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy（含变量分页、Watch、REPL、暂停）、函数工作台、三视图静态结构图（Python/TS-JS）、完整运行记录与回放已接通，C/C++/Java 与其余真实调试适配器待填。
 
 ## 先读
 
@@ -64,6 +64,8 @@ docs/
 
 - `workbench.py` 只支持 Python；`_template`/`_context_source` 是继承机制的入口。
 - `static_analysis.py` 是 Python 启发式结构图；`executable_lines` 供完整运行自动设断点。`graph_views.py` 是语言无关的视图/聚焦过滤；新增语言时按“节点/边契约”提供等价分析器，不要把静态推断写成运行时事实。
+- 真实变量分页走 `debug.variablesPage`；`ValueSnapshot.childCount/hasMore` 表示是否还有页。列表/数组的后续页通过 `evaluate` 切片（需要 `allowEvaluate` 授权）；字典/集合暂不支持后续页。
+- Watch/REPL 走 `debug.evaluate`；服务按 `sessionId/runId/stopEpoch` 校验句柄。`allowEvaluate` 写入 config digest，原生确认明确告知用户；脚本演示的 `evaluate` 为 false。
 - TS/JS 由 `desktop/analyzers/js_analyzer.mjs` 解析，宿主 `_analyze_js` 调用后再过 `graph_views`；不执行 Node 中的用户代码。
 - UI 的“静态/运行”视图在 `StudioStore.canvasView`，静态图的“总览/结构/数据”在 `graphView`，聚焦节点在 `graphFocus`。
 - 静态布局：`SceneCanvas` 的 dagre TB + 类成员三列网格 + `ResizeObserver` 自动适配；阅读上限在 `graph_views.py`。
@@ -98,7 +100,7 @@ UI 改动需启动 Vite 并用真实浏览器/窗口点过；只看 diff 不算�
 
 ## 下一个任务
 
-**静态图继续深挖 + 真窗口验收。** 先补跨文件符号解析、递归/超大类自动聚合、成员点击导航；随后让主人实际点一次原生确认框，测 IME/DPI/快捷键/崩溃恢复；再补运行中改断点、嵌套函数/共享引用/循环引用/异常、更多容器与 trace 持久化。C/C++/Java 接真实解析器，GDB/js-debug/java-debug/LSP 逐个 spike。
+**调试 P0b + 运行时画布 v2。** P0b：条件/日志/异常断点、改变量、重启、线程/栈分页、暂停的运行中 UI 测试；画布 v2：函数/栈帧大方框、变量卡内含、赋值/迭代边、循环轨道、张量卡、图例/视觉语法。之后再做跨文件符号解析、真窗口 IME/DPI/崩溃恢复，以及 C/C++/Java/GDB/js-debug/java-debug/LSP 逐个 spike。
 
 ## 禁止
 

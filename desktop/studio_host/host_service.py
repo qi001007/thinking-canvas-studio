@@ -107,6 +107,7 @@ class HostService:
             "mode": config["mode"],
             "traceLineCount": len(config["traceLines"]),
             "maxFrames": config["maxFrames"],
+            "allowEvaluate": config["allowEvaluate"],
         }
 
     def issue_run_approval(self, program: str, breakpoints: list[int], mode: str = "debug") -> dict[str, Any]:
@@ -128,6 +129,7 @@ class HostService:
             "mode": config["mode"],
             "traceLineCount": len(config["traceLines"]),
             "maxFrames": config["maxFrames"],
+            "allowEvaluate": config["allowEvaluate"],
         }
 
     async def handle(self, method: str, params: dict[str, Any]) -> Any:
@@ -205,6 +207,27 @@ class HostService:
             if not isinstance(container, dict):
                 raise RpcError(-32602, "container handle must be an object")
             return await self._active_service().get_variables(container)
+        if method == "debug.variablesPage":
+            container = params.get("container")
+            page = params.get("page")
+            if not isinstance(container, dict) or not isinstance(page, dict):
+                raise RpcError(-32602, "container handle and page must be objects")
+            try:
+                return await self._active_service().get_variable_page(container, page)
+            except (RealDebugError, RuntimeError) as exc:
+                raise RpcError(-32012, str(exc)) from exc
+        if method == "debug.evaluate":
+            frame = params.get("frame")
+            expression = params.get("expression")
+            context = params.get("context", "watch")
+            if not isinstance(frame, dict) or not isinstance(expression, str):
+                raise RpcError(-32602, "frame handle and expression are required")
+            if context not in {"watch", "repl", "hover"}:
+                raise RpcError(-32602, "context must be watch, repl, or hover")
+            try:
+                return await self._active_service().evaluate(frame, expression, context)
+            except (RealDebugError, RuntimeError) as exc:
+                raise RpcError(-32012, str(exc)) from exc
         raise RpcError(-32601, f"method not found: {method}")
 
     async def close(self) -> None:
@@ -266,6 +289,7 @@ class HostService:
                 auto_record=mode == "record",
                 trace_lines=config["traceLines"],
                 max_frames=config["maxFrames"],
+                allow_evaluate=bool(config["allowEvaluate"]),
             )
         except RealDebugError:
             self._active = None
@@ -412,6 +436,7 @@ class HostService:
             "mode": mode,
             "traceLines": trace_lines,
             "maxFrames": 500,
+            "allowEvaluate": True,
             "limits": {
                 "timeoutSeconds": DEFAULT_LIMITS.timeout_seconds,
                 "memoryBytes": DEFAULT_LIMITS.memory_bytes,

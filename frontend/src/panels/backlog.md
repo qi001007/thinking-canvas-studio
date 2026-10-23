@@ -7,3 +7,4 @@
 - [ ] 懒加载变量树、Watch/REPL、异常 widget；真实窗口密度/窄窗验收。
 - [x] 完整运行/调试运行按钮；Timeline 播放控件与速度选择。
 - [x] Topbar/FileSidebar：非 Python 禁用真实运行/工作台；图视图控件在画布工具栏。
+- [x] Inspector：Watch 区、变量分页“加载更多”、路径只显示文件名；ConsolePanel：停点 REPL 求值；Topbar 运行中暂停。
