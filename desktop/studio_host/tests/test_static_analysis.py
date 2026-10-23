@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,22 +53,42 @@ class Layer(Base):
         return self.proj + total
 '''
         await self.service.handle("workbench.write", {"path": info["path"], "content": code})
-        result = await self.service.handle("analysis.analyze", {"path": info["path"]})
-        self.assertEqual(result["coverage"]["state"], "complete")
-        self.assertGreaterEqual(result["stats"]["functions"], 3)
+        overview = await self.service.handle("analysis.analyze", {"path": info["path"], "view": "overview"})
+        self.assertEqual(overview["coverage"]["state"], "complete")
+        self.assertGreaterEqual(overview["stats"]["functions"], 1)
+        self.assertEqual(overview["stats"]["classes"], 2)
+        result = await self.service.handle("analysis.analyze", {"path": info["path"], "view": "structure"})
         self.assertEqual(result["stats"]["classes"], 2)
+        focus_options = {option["label"]: option["id"] for option in result["focusOptions"]}
         nodes = result["scene"]["nodes"]
         edges = result["scene"]["edges"]
         by_label = {node["label"]: node for node in nodes}
         self.assertIn("Layer", by_label)
-        self.assertIn("继承 · model.py", by_label)
         self.assertEqual(by_label["Layer"]["card"]["kind"], "class")
-        self.assertIn("Base", [node["label"] for node in nodes])
+        self.assertIn("Base", by_label)
+        self.assertIn("scale", by_label)
+        self.assertIn("Layer.__init__", by_label)
+        self.assertIn("Layer.forward", by_label)
+        self.assertNotIn("helper", by_label)
         self.assertTrue(any(edge["kind"] == "inherits" and edge.get("label") == "Base" for edge in edges))
-        self.assertTrue(any(edge["kind"] == "calls" and edge.get("label") == "helper" for edge in edges))
-        self.assertTrue(any(edge["kind"] == "imports" for edge in edges))
-        self.assertTrue(any(edge["kind"] == "iterates" for edge in edges))
-        self.assertTrue(any(edge["kind"] == "returns" for edge in edges))
+        self.assertTrue(any(edge["kind"] == "method" for edge in edges))
+        self.assertTrue(any(edge["kind"] == "imports" for edge in overview["scene"]["edges"]))
+
+        init_view = await self.service.handle(
+            "analysis.analyze",
+            {"path": info["path"], "view": "structure", "focus": focus_options["Layer.__init__"]},
+        )
+        self.assertIn("helper", [node["label"] for node in init_view["scene"]["nodes"]])
+        self.assertTrue(any(edge["kind"] == "calls" and edge.get("label") == "helper" for edge in init_view["scene"]["edges"]))
+
+        forward_view = await self.service.handle(
+            "analysis.analyze",
+            {"path": info["path"], "view": "structure", "focus": focus_options["Layer.forward"]},
+        )
+        forward_labels = [node["label"] for node in forward_view["scene"]["nodes"]]
+        self.assertIn("total", forward_labels)
+        self.assertTrue(any(edge["kind"] == "iterates" for edge in forward_view["scene"]["edges"]))
+        self.assertTrue(any(edge["kind"] == "returns" for edge in forward_view["scene"]["edges"]))
 
     async def test_syntax_error_does_not_get_faked_as_structure(self) -> None:
         info = await self.service.handle("workbench.create", {"sourceFile": "model.py"})
@@ -76,6 +97,37 @@ class Layer(Base):
         self.assertIn("SyntaxError", result["error"])
         self.assertEqual(result["scene"]["nodes"], [])
         self.assertEqual(result["coverage"]["state"], "unknown")
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is required for the TypeScript analyzer")
+    async def test_typescript_views_use_real_compiler_ast(self) -> None:
+        (self.root / "fixture.ts").write_text(
+            """import { Component } from '@angular/core';
+
+class TensorPath {
+  scale: number = 2;
+  constructor(values: number[]) { this.values = values; this.total = 0; }
+  score(): number { let result = 0; for (const value of this.values) { result += value * this.scale; } return result; }
+}
+
+function build(values: number[]): number { const path = new TensorPath(values); return path.score(); }
+""",
+            encoding="utf-8",
+        )
+        overview = await self.service.handle("analysis.analyze", {"path": "fixture.ts", "view": "overview"})
+        self.assertIsNone(overview.get("error"))
+        self.assertEqual(overview["sourceFile"], "fixture.ts")
+        self.assertIn("TensorPath", [node["label"] for node in overview["scene"]["nodes"]])
+        structure = await self.service.handle("analysis.analyze", {"path": "fixture.ts", "view": "structure"})
+        labels = [node["label"] for node in structure["scene"]["nodes"]]
+        self.assertIn("scale", labels)
+        self.assertIn("TensorPath.score", labels)
+        self.assertNotIn("result", labels)
+        focus_options = {option["label"]: option["id"] for option in structure["focusOptions"]}
+        method = await self.service.handle(
+            "analysis.analyze",
+            {"path": "fixture.ts", "view": "structure", "focus": focus_options["TensorPath.score"]},
+        )
+        self.assertIn("result", [node["label"] for node in method["scene"]["nodes"]])
 
     async def test_workbench_create_is_stable_and_read_write_round_trips(self) -> None:
         first = await self.service.handle("workbench.create", {"sourceFile": "model.py"})

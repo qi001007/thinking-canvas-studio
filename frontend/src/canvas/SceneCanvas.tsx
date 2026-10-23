@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
+import { graphlib, layout as dagreLayout } from '@dagrejs/dagre';
 import type { SceneDiff } from '@core/canvas/diff';
 import type { LayoutViewState } from '@core/canvas/documents';
 import type { CanvasNode, CardData, SceneDto } from '@core/domain/contracts';
@@ -6,6 +7,7 @@ import type { CanvasNode, CardData, SceneDto } from '@core/domain/contracts';
 interface SceneCanvasProps {
 	readonly scene: SceneDto;
 	readonly mode: 'manual' | 'debug';
+	readonly graphView?: 'overview' | 'structure' | 'data';
 	readonly layout: LayoutViewState;
 	readonly diff: SceneDiff;
 	readonly selectedNodeId?: string;
@@ -53,6 +55,18 @@ const CARD_WIDTH: Record<CardData['kind'], number> = {
 	loop: 260
 };
 
+const STATIC_CARD_WIDTH: Partial<Record<CardData['kind'], number>> = {
+	class: 250,
+	function: 250,
+	parameter: 180,
+	variable: 170,
+	module: 220,
+	import: 200,
+	call: 230,
+	external: 180,
+	loop: 210
+};
+
 const CARD_HEIGHT: Record<CardData['kind'], number> = {
 	array: 130,
 	matrix: 160,
@@ -80,6 +94,7 @@ const CARD_HEIGHT: Record<CardData['kind'], number> = {
 export function SceneCanvas({
 	scene,
 	mode,
+	graphView = 'overview',
 	layout,
 	diff,
 	selectedNodeId,
@@ -89,35 +104,30 @@ export function SceneCanvas({
 	onCommitMove
 }: SceneCanvasProps) {
 	const [viewport, setViewport] = useState<Viewport>({ x: 24, y: 16, zoom: 1 });
+	const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
 	const viewportRef = useRef<HTMLDivElement | null>(null);
 	const panRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null);
 	const dragRef = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null);
-	const positions = useMemo(() => layoutPositions(scene, layout), [scene, layout]);
+	const positions = useMemo(() => layoutPositions(scene, layout, graphView), [scene, layout, graphView]);
 	const sceneKey = useMemo(() => scene.nodes.map(node => node.id).join('|'), [scene.nodes]);
 
 	useEffect(() => {
 		const surface = viewportRef.current;
 		if (!surface) return;
-		const width = surface.clientWidth;
-		const height = surface.clientHeight;
-		if (width === 0 || height === 0 || scene.nodes.length === 0) {
+		const update = () => setViewportSize({ width: surface.clientWidth, height: surface.clientHeight });
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(surface);
+		return () => observer.disconnect();
+	}, []);
+
+	useEffect(() => {
+		if (viewportSize.width === 0 || viewportSize.height === 0 || scene.nodes.length === 0) {
 			setViewport({ x: 24, y: 16, zoom: 1 });
 			return;
 		}
-		let maxX = 0;
-		let maxY = 0;
-		for (const node of scene.nodes) {
-			const position = positions[node.id];
-			if (!position) continue;
-			const size = sizeOf(node);
-			maxX = Math.max(maxX, position.x + size.width);
-			maxY = Math.max(maxY, position.y + size.height);
-		}
-		const isStatic = scene.nodes.some(node => node.origin === 'static');
-		const minZoom = isStatic ? 0.68 : 0.4;
-		const zoom = Math.max(minZoom, Math.min(1, (width - 48) / Math.max(1, maxX), (height - 48) / Math.max(1, maxY)));
-		setViewport({ x: 24, y: 20, zoom });
-	}, [sceneKey, mode]);
+		setViewport(fitViewport(scene, positions, viewportSize.width, viewportSize.height));
+	}, [sceneKey, mode, graphView, viewportSize.width, viewportSize.height]);
 
 	const startPan = (event: PointerEvent<HTMLDivElement>) => {
 		if (event.target !== event.currentTarget) return;
@@ -202,7 +212,7 @@ export function SceneCanvas({
 									className={`scene-edge scene-edge-${edge.kind}`}
 									markerEnd={edge.kind === 'contains' || edge.kind === 'defines' ? undefined : edge.kind === 'alias' ? 'url(#arrow-alias)' : 'url(#arrow-accent)'}
 								/>
-								{edge.label && ['calls', 'returns', 'inherits', 'imports', 'parameter', 'flows', 'uses', 'targets', 'method', 'field', 'iterates', 'produces'].includes(edge.kind) && (
+								{edge.label && ['calls', 'returns', 'inherits', 'imports'].includes(edge.kind) && (
 									<text className="scene-edge-label" x={(start.x + end.x) / 2} y={(start.y + end.y) / 2 - 4}>
 										{edge.label}
 									</text>
@@ -258,7 +268,15 @@ export function SceneCanvas({
 				<button type="button" onClick={() => changeZoom(-0.1)} aria-label="缩小">−</button>
 				<span>{Math.round(viewport.zoom * 100)}%</span>
 				<button type="button" onClick={() => changeZoom(0.1)} aria-label="放大">+</button>
-				<button type="button" className="canvas-fit" onClick={() => setViewport({ x: 24, y: 16, zoom: 1 })}>重置</button>
+				<button
+					type="button"
+					className="canvas-fit"
+					onClick={() => {
+						const surface = viewportRef.current;
+						if (!surface) return;
+						setViewport(fitViewport(scene, positions, surface.clientWidth, surface.clientHeight));
+					}}
+				>适配</button>
 			</div>
 		</div>
 	);
@@ -352,8 +370,8 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 			return (
 				<div className="canvas-class">
 					<div className="canvas-signature">{card.name}{card.bases.length > 0 ? `(${card.bases.join(', ')})` : ''}</div>
-					{card.fields && card.fields.length > 0 && <div className="canvas-function-meta"><span>字段</span>{card.fields.join(', ')}</div>}
-					{card.methods && card.methods.length > 0 && <div className="canvas-function-meta"><span>方法</span>{card.methods.join(', ')}</div>}
+					{card.fields && card.fields.length > 0 && <div className="canvas-function-meta"><span>字段</span>{compactList(card.fields)}</div>}
+					{card.methods && card.methods.length > 0 && <div className="canvas-function-meta"><span>方法</span>{compactList(card.methods)}</div>}
 					{card.line && <div className="canvas-complexity">line {card.line}</div>}
 				</div>
 			);
@@ -398,10 +416,10 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 	}
 }
 
-function layoutPositions(scene: SceneDto, layout: LayoutViewState): Record<string, Point> {
+function layoutPositions(scene: SceneDto, layout: LayoutViewState, graphView: 'overview' | 'structure' | 'data'): Record<string, Point> {
 	const positions: Record<string, Point> = {};
 	if (scene.nodes.some(node => node.origin === 'static')) {
-		return staticGraphPositions(scene, layout);
+		return staticGraphPositions(scene, layout, graphView);
 	}
 	let frameIndex = 0;
 	let valueIndex = 0;
@@ -422,58 +440,136 @@ function layoutPositions(scene: SceneDto, layout: LayoutViewState): Record<strin
 	return positions;
 }
 
-function staticGraphPositions(scene: SceneDto, layout: LayoutViewState): Record<string, Point> {
+function staticGraphPositions(scene: SceneDto, layout: LayoutViewState, graphView: 'overview' | 'structure' | 'data'): Record<string, Point> {
 	const positions: Record<string, Point> = {};
-	const nodeById = new Map(scene.nodes.map(node => [node.id, node]));
-	const outgoing = new Map<string, string[]>();
-	const indegree = new Map<string, number>(scene.nodes.map(node => [node.id, 0]));
-	for (const edge of scene.edges) {
-		if (!nodeById.has(edge.from) || !nodeById.has(edge.to)) continue;
-		outgoing.set(edge.from, [...(outgoing.get(edge.from) ?? []), edge.to]);
-		indegree.set(edge.to, (indegree.get(edge.to) ?? 0) + 1);
+	if (scene.nodes.length === 0) return positions;
+	if (graphView === 'structure' || graphView === 'data') {
+		const memberLayout = classMemberGrid(scene, positions);
+		if (memberLayout) return positions;
 	}
-	const priority: Record<string, number> = { module: 0, class: 1, function: 2, import: 3, parameter: 4, variable: 5, loop: 6, call: 7, external: 8 };
-	const sortNodes = (a: CanvasNode, b: CanvasNode): number => {
-		const ka = priority[a.card?.kind ?? 'variable'] ?? 9;
-		const kb = priority[b.card?.kind ?? 'variable'] ?? 9;
-		return ka - kb || a.label.localeCompare(b.label);
-	};
-	const roots = scene.nodes.filter(node => (indegree.get(node.id) ?? 0) === 0).sort(sortNodes);
-	const queue: Array<{ id: string; level: number }> = (roots.length > 0 ? roots : scene.nodes.slice(0, 1)).map(node => ({ id: node.id, level: 0 }));
-	const levels = new Map<string, number>();
-	const visited = new Set<string>();
-	while (queue.length > 0) {
-		const item = queue.shift()!;
-		if (visited.has(item.id)) continue;
-		visited.add(item.id);
-		levels.set(item.id, item.level);
-		for (const child of outgoing.get(item.id) ?? []) {
-			if (!visited.has(child)) queue.push({ id: child, level: item.level + 1 });
+	const graph = new graphlib.Graph();
+	graph.setGraph({
+		rankdir: 'TB',
+		align: 'UL',
+		nodesep: 46,
+		ranksep: 54,
+		marginx: 24,
+		marginy: 24,
+		ranker: 'network-simplex'
+	});
+	graph.setDefaultEdgeLabel(() => ({}));
+	for (const node of scene.nodes) {
+		const size = sizeOf(node);
+		graph.setNode(node.id, { width: size.width, height: size.height });
+	}
+	for (const edge of scene.edges) {
+		if (graph.hasNode(edge.from) && graph.hasNode(edge.to)) {
+			graph.setEdge(edge.from, edge.to);
 		}
 	}
+	dagreLayout(graph);
 	for (const node of scene.nodes) {
-		if (!levels.has(node.id)) levels.set(node.id, 0);
-	}
-	const columns = new Map<number, CanvasNode[]>();
-	for (const node of scene.nodes) {
-		const level = levels.get(node.id) ?? 0;
-		columns.set(level, [...(columns.get(level) ?? []), node]);
-	}
-	for (const [level, nodes] of [...columns.entries()].sort((a, b) => a[0] - b[0])) {
-		let y = 36;
-		const ordered = [...nodes].sort(sortNodes);
-		for (const node of ordered) {
-			const stored = layout.positions[node.id];
-			positions[node.id] = stored ?? { x: 32 + level * 330, y };
-			y += sizeOf(node).height + 34;
+		const positioned = graph.node(node.id) as { x: number; y: number; width: number; height: number } | undefined;
+		const stored = layout.positions[node.id];
+		if (stored) {
+			positions[node.id] = stored;
+		} else if (positioned) {
+			positions[node.id] = { x: positioned.x - positioned.width / 2, y: positioned.y - positioned.height / 2 };
+		} else {
+			positions[node.id] = { x: 32, y: 36 };
 		}
 	}
 	return positions;
 }
 
+function compactList(items: readonly string[], limit = 8): string {
+	if (items.length <= limit) return items.join(', ');
+	return `${items.slice(0, limit).join(', ')} +${items.length - limit}`;
+}
+
 function sizeOf(node: CanvasNode): { width: number; height: number } {
 	const kind = node.card?.kind ?? 'variable';
-	return { width: CARD_WIDTH[kind], height: CARD_HEIGHT[kind] };
+	const width = node.origin === 'static' ? STATIC_CARD_WIDTH[kind] ?? CARD_WIDTH[kind] : CARD_WIDTH[kind];
+	return { width, height: CARD_HEIGHT[kind] };
+}
+
+function classMemberGrid(scene: SceneDto, positions: Record<string, Point>): boolean {
+	const classes = scene.nodes.filter(node => node.card?.kind === 'class');
+	if (classes.length === 0) return false;
+	const ranked = classes
+		.map(node => ({ node, outgoing: scene.edges.filter(edge => edge.from === node.id) }))
+		.sort((a, b) => b.outgoing.length - a.outgoing.length);
+	const focus = ranked[0];
+	if (!focus || focus.outgoing.length < 3) return false;
+	const memberIds = new Set(
+		focus.outgoing
+			.filter(edge => edge.kind === 'field' || edge.kind === 'method' || edge.kind === 'inherits' || edge.kind === 'parameter')
+			.map(edge => edge.to)
+	);
+	const kindRank = (node: CanvasNode) =>
+		node.card?.kind === 'class' ? 0 : node.card?.kind === 'variable' || node.card?.kind === 'parameter' ? 1 : 2;
+	const members = scene.nodes
+		.filter(node => memberIds.has(node.id))
+		.sort((a, b) => kindRank(a) - kindRank(b) || (a.card?.kind === 'function' && b.card?.kind === 'function' ? (a.card.line ?? 0) - (b.card.line ?? 0) : 0));
+	if (members.length < 3) return false;
+	if (scene.edges.some(edge => edge.from !== focus.node.id && (memberIds.has(edge.from) || memberIds.has(edge.to)))) return false;
+	const classSize = sizeOf(focus.node);
+	const columns = Math.min(4, Math.max(3, Math.ceil(Math.sqrt(members.length))));
+	const cellWidth = Math.max(...members.map(node => sizeOf(node).width));
+	const gapX = 28;
+	const gapY = 24;
+	positions[focus.node.id] = { x: 24, y: 24 };
+	let cursorX = 24;
+	let cursorY = 24 + classSize.height + 64;
+	let rowHeight = 0;
+	members.forEach((node, index) => {
+		const column = index % columns;
+		if (column === 0 && index > 0) {
+			cursorY += rowHeight + gapY;
+			cursorX = 24;
+			rowHeight = 0;
+		}
+		positions[node.id] = { x: cursorX, y: cursorY };
+		cursorX += cellWidth + gapX;
+		rowHeight = Math.max(rowHeight, sizeOf(node).height);
+	});
+	for (const node of scene.nodes) {
+		if (!positions[node.id]) positions[node.id] = { x: 24, y: cursorY + rowHeight + gapY };
+	}
+	return true;
+}
+
+function fitViewport(
+	scene: SceneDto,
+	positions: Record<string, Point>,
+	width: number,
+	height: number
+): Viewport {
+	let minX = Number.POSITIVE_INFINITY;
+	let minY = Number.POSITIVE_INFINITY;
+	let maxX = 0;
+	let maxY = 0;
+	for (const node of scene.nodes) {
+		const position = positions[node.id];
+		if (!position) continue;
+		const size = sizeOf(node);
+		minX = Math.min(minX, position.x);
+		minY = Math.min(minY, position.y);
+		maxX = Math.max(maxX, position.x + size.width);
+		maxY = Math.max(maxY, position.y + size.height);
+	}
+	if (!Number.isFinite(minX) || !Number.isFinite(minY)) return { x: 24, y: 16, zoom: 1 };
+	const contentWidth = Math.max(1, maxX - minX);
+	const contentHeight = Math.max(1, maxY - minY);
+	const padding = 32;
+	const fit = Math.min(1, (width - padding * 2) / contentWidth, (height - padding * 2) / contentHeight);
+	const staticScene = scene.nodes.some(node => node.origin === 'static');
+	const zoom = Math.max(staticScene ? 0.42 : 0.4, fit);
+	const scaledWidth = contentWidth * zoom;
+	const scaledHeight = contentHeight * zoom;
+	const x = scaledWidth <= width - padding * 2 ? (width - scaledWidth) / 2 - minX * zoom : padding - minX * zoom;
+	const y = scaledHeight <= height - padding * 2 ? (height - scaledHeight) / 2 - minY * zoom : padding - minY * zoom;
+	return { x, y, zoom };
 }
 
 function edgeStart(from: Point, fromSize: { width: number; height: number }, to: Point): Point {

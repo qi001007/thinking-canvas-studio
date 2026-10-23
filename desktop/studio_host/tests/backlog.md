@@ -8,5 +8,6 @@
 - [x] `test_real_debug_service.py`：真实 debugpy 断点/locals/list/单步/停止清理；`test_windows_supervisor.py`：Job Object 限额 + wall timeout；`test_approval_registry.py`：单次 scope 绑定。
 - [x] `test_static_analysis.py`：工作台继承 context、类/字段/调用/循环/returns 图、语法错误不伪造结构、工作台稳定创建/读写。
 - [x] `test_real_debug_service.test_record_mode_builds_a_complete_frame_timeline`：自动逐行记录、循环帧、runEnded。
-- [x] 验证命令：`python -m unittest discover -s desktop/studio_host/tests -t desktop -v`，54 项通过（含自动记录）。
+- [x] 验证命令：`python -m unittest discover -s desktop/studio_host/tests -t desktop -v`，55 项通过（含自动记录、TS 静态分析、图视图聚焦）。
+- [x] `test_static_analysis.py`：类结构一层、方法聚焦展开、TS 结构/方法下钻；不再把方法内部变量当类视图成员。
 - [ ] 大型图/跨文件/递归/张量静态分析；运行中改断点；GDB/JS/Java；IME/DPI。

@@ -3,6 +3,9 @@
 - 2026-10-23：按主人纠正重审：本产品是新的轻量代码编辑器 + 语言无关图形调试器，旧项目只作视觉参考。
 - 2026-10-23：Phase 0 契约与源码索引保留；Phase 1 底座落地：Monaco/React、共享画布、手绘模式、脚本化 DAP、WS 桥、工作区、语言包。
 - 2026-10-23：重写 README、产品需求、架构、数据模型、spike、风险、进度、反馈、交接；明确“脚本演示”和“真实调试”的边界。
-- 2026-10-23：Node 19 项、Python 46 项、typecheck/build 通过；浏览器与 Python 桥链路实测；pywebview 真窗口待验收。- 2026-10-23：接通真实 Python debugpy：原生确认 → 单次 receipt → GrantAuthority → Windows Job Object → DAP attach；断点/单步/locals/list/退出清理与超时测试通过。
+- 2026-10-23：Node 19 项、Python 46 项、typecheck/build 通过；浏览器与 Python 桥链路实测；pywebview 真窗口待验收。
+- 2026-10-23：接通真实 Python debugpy：原生确认 → 单次 receipt → GrantAuthority → Windows Job Object → DAP attach；断点/单步/locals/list/退出清理与超时测试通过。
 - 2026-10-23：新增函数工作台 + 隐藏 context 继承；Python AST 静态结构图（函数/类/字段/参数/调用/循环/继承）；结构/运行双视图；帧轴时间线 500 帧上限；Python 54 项、Node 19 项测试通过。
 - 2026-10-23：完整运行自动逐行记录 + 帧轴播放/暂停/调速；Python 54 项、Node 19 项通过。
+- 2026-10-23：静态图三视图（总览/结构/数据）+ 聚焦下钻 + 类成员网格 + dagre TB + 分栏自适应；TS/JS 静态分析器；Python 55 项、Node 19 项通过。
+- 2026-10-23：最终构建 + 全新桥截图验证 9/6/4/7 卡；大文件三视图 11/17/17 节点 partial；类结构 17 卡 @73%；`docs/graph-design.md` 记录参考与失败边界。

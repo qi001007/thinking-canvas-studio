@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import importlib.metadata
+import json
+import subprocess
 import sys
 import uuid
 from collections.abc import Awaitable, Callable
@@ -24,6 +26,7 @@ from .host_approval import ApprovalRegistry
 from .language_packages import LanguagePackageError, load_language_packages
 from .ports import ExecutionSpec, ResourceLimits
 from .real_debug_service import RealDebugError, RealDebugService
+from .graph_views import default_focus, focus_options, select_graph_view
 from .static_analysis import analyze_python, executable_lines
 from .windows_supervisor import SupervisorError, WindowsJobObjectSupervisor
 from .workbench import WorkbenchStore, WORKBENCH_DIR
@@ -36,6 +39,8 @@ DEFAULT_LIMITS = ResourceLimits(
     cpu_seconds=120.0,
     process_count=8,
 )
+REPO_ROOT = Path(__file__).resolve().parents[2]
+JS_ANALYZER = REPO_ROOT / "desktop" / "analyzers" / "js_analyzer.mjs"
 REAL_OPERATIONS = frozenset({
     Operation.LAUNCH,
     Operation.CONTINUE,
@@ -146,7 +151,13 @@ class HostService:
             self._workbench.write(path, _text_param(params, "content"))
             return {}
         if method == "analysis.analyze":
-            return self._analyze(_text_param(params, "path"))
+            view = params.get("view", "overview")
+            if view not in {"overview", "structure", "data"}:
+                raise RpcError(-32602, "view must be overview, structure, or data")
+            focus = params.get("focus")
+            if focus is not None and not isinstance(focus, str):
+                raise RpcError(-32602, "focus must be a node id")
+            return self._analyze(_text_param(params, "path"), view, focus)
         if method == "workspace.list":
             return self._workspace.list_files()
         if method == "workspace.readText":
@@ -280,7 +291,12 @@ class HostService:
             return self._demo
         raise RpcError(-32005, "no debug session is active")
 
-    def _analyze(self, path: str) -> dict[str, Any]:
+    def _analyze(self, path: str, view: str = "overview", focus: str | None = None) -> dict[str, Any]:
+        suffix = Path(path).suffix.lower()
+        if suffix in {".ts", ".tsx", ".js", ".jsx"}:
+            return self._analyze_js(path, view, focus)
+        if suffix != ".py":
+            raise RpcError(-32008, f"static analyzer is not connected for {suffix or 'this file type'}")
         if path.replace("\\", "/").startswith(WORKBENCH_DIR + "/"):
             info = self._workbench.info(path)
             source_path = self._workbench.source_path(path)
@@ -290,16 +306,69 @@ class HostService:
                 info.content,
                 source_path,
                 source_text,
+                view=view,
+                focus=focus,
             )
         try:
             absolute = self._workspace.resolve_file(path)
         except WorkspaceError as exc:
             raise RpcError(-32602, str(exc)) from exc
-        return analyze_python(absolute, absolute.read_text(encoding="utf-8"), None, None)
+        return analyze_python(absolute, absolute.read_text(encoding="utf-8"), None, None, view=view, focus=focus)
+
+    def _analyze_js(self, path: str, view: str, focus: str | None) -> dict[str, Any]:
+        try:
+            absolute = self._workspace.resolve_file(path)
+        except WorkspaceError as exc:
+            raise RpcError(-32602, str(exc)) from exc
+        if not JS_ANALYZER.is_file():
+            raise RpcError(-32009, "TypeScript analyzer is missing")
+        try:
+            completed = subprocess.run(
+                ["node", str(JS_ANALYZER), str(absolute)],
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=20,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RpcError(-32009, f"TypeScript analyzer failed: {exc}") from exc
+        try:
+            payload = json.loads(completed.stdout)
+        except json.JSONDecodeError as exc:
+            raise RpcError(-32009, f"TypeScript analyzer returned invalid JSON: {exc}") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("scene"), dict):
+            raise RpcError(-32009, "TypeScript analyzer returned an invalid scene")
+        if payload.get("error"):
+            payload["view"] = "overview"
+            payload["focusOptions"] = []
+            return payload
+        all_nodes = payload["scene"].get("nodes", [])
+        all_edges = payload["scene"].get("edges", [])
+        options = focus_options(all_nodes)
+        chosen_view = view if view in {"overview", "structure", "data"} else "overview"
+        module_id = f"js:module:{absolute.name}"
+        selected_focus = focus if any(node.get("id") == focus for node in all_nodes) else default_focus(all_nodes, chosen_view, module_id)
+        view_nodes, view_edges, selected_focus = select_graph_view(all_nodes, all_edges, chosen_view, selected_focus, module_id)
+        payload["scene"] = {"nodes": view_nodes, "edges": view_edges}
+        payload["view"] = chosen_view
+        payload["focus"] = selected_focus
+        payload["focusOptions"] = options
+        payload["hiddenNodeCount"] = len(all_nodes) - len(view_nodes)
+        payload["stats"] = {
+            "nodes": len(view_nodes),
+            "edges": len(view_edges),
+            "functions": sum(1 for node in view_nodes if node.get("card", {}).get("kind") == "function"),
+            "classes": sum(1 for node in view_nodes if node.get("card", {}).get("kind") == "class"),
+        }
+        return payload
 
     def _build_scope(self, program: str, breakpoints: list[int], mode: str = "debug") -> tuple[GrantScope, dict[str, Any], ResourceLimits, Path]:
         if not isinstance(program, str) or not program.strip():
             raise RpcError(-32602, "program must be a workspace file")
+        if Path(program).suffix.lower() != ".py":
+            raise RpcError(-32010, "real debugging is currently available for Python files only")
         try:
             absolute = self._workbench.resolve_program(program)
         except WorkspaceError as exc:

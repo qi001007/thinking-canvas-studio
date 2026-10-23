@@ -42,11 +42,12 @@ export function StudioApp() {
 
 function StudioView({ store }: { readonly store: StudioStore }) {
 	const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
-	const [editorRatio, setEditorRatio] = useState(0.5);
+	const [editorRatio, setEditorRatio] = useState(0.44);
+	const [detailEditorRatio, setDetailEditorRatio] = useState(0.36);
 	const workbenchRef = useRef<HTMLDivElement | null>(null);
 	const splitDragRef = useRef(false);
 	const isHistory = state.mode === 'manual' ? state.manualStepIndex >= 0 : state.canvasView === 'runtime' && state.snapshotIndex >= 0;
-	const effectiveEditorRatio = state.mode === 'debug' && state.canvasView === 'static' ? 0.46 : editorRatio;
+	const effectiveEditorRatio = state.mode === 'debug' && state.canvasView === 'static' && state.graphView !== 'overview' ? detailEditorRatio : editorRatio;
 	const snapshot = currentSnapshot(state);
 	const historyFrame = snapshot?.frames.find(frame => frame.id === state.selectedFrameId) ?? snapshot?.frames[0];
 	const liveFrame = selectedFrame(state);
@@ -118,7 +119,9 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 								if (!splitDragRef.current) return;
 								const rect = workbenchRef.current?.getBoundingClientRect();
 								if (!rect) return;
-								setEditorRatio(Math.max(0.32, Math.min(0.72, (event.clientX - rect.left) / rect.width)));
+								const ratio = Math.max(0.32, Math.min(0.72, (event.clientX - rect.left) / rect.width));
+								if (state.mode === 'debug' && state.canvasView === 'static' && state.graphView !== 'overview') setDetailEditorRatio(ratio);
+								else setEditorRatio(ratio);
 							}}
 							onPointerUp={() => {
 								splitDragRef.current = false;
@@ -129,20 +132,42 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 								<div className="canvas-title">
 									<span className="canvas-title-icon" aria-hidden="true" />
 									<strong>{state.mode === 'manual' ? '手绘画布' : state.canvasView === 'static' ? '静态结构' : '运行时画布'}</strong>
-									<span className="canvas-subtitle">
+									<span className="canvas-subtitle" title="结构视图按聚焦分层；聚焦类看成员，聚焦方法看内部">
 										{state.scene.nodes.length} 个对象 · {state.scene.edges.length} 条关系
 										{state.mode === 'debug' && state.canvasView === 'static' && state.staticStats ? ` · ${state.staticStats.functions} 函数 / ${state.staticStats.classes} 类` : ''}
 									</span>
 								</div>
 								<div className="canvas-meta">
-									{state.mode === 'debug' && (
-										<div className="canvas-view-switch">
-											<button type="button" className={state.canvasView === 'static' ? 'is-active' : ''} onClick={() => store.setCanvasView('static')}>结构</button>
-											<button type="button" className={state.canvasView === 'runtime' ? 'is-active' : ''} onClick={() => store.setCanvasView('runtime')} disabled={state.snapshots.length === 0}>运行</button>
-										</div>
+									{state.mode === 'debug' && state.canvasView === 'static' && (
+										<>
+											<div className="graph-view-switch">
+												<button type="button" className={state.graphView === 'overview' ? 'is-active' : ''} onClick={() => { store.setGraphView('overview'); setEditorRatio(0.44); }}>总览</button>
+												<button type="button" className={state.graphView === 'structure' ? 'is-active' : ''} onClick={() => { store.setGraphView('structure'); setDetailEditorRatio(0.36); }}>结构</button>
+												<button type="button" className={state.graphView === 'data' ? 'is-active' : ''} onClick={() => { store.setGraphView('data'); setDetailEditorRatio(0.36); }}>数据</button>
+											</div>
+											<select
+												className="graph-focus-select"
+												value={state.graphFocus ?? ''}
+												onChange={event => {
+													setDetailEditorRatio(0.36);
+													if (event.target.value) store.focusGraphNode(event.target.value);
+													else store.clearGraphFocus();
+												}}
+												aria-label="聚焦函数或类"
+												title="聚焦类看成员；聚焦方法看内部参数、变量和调用"
+											>
+												<option value="">聚焦：自动</option>
+												{state.graphFocusOptions.map(option => (
+													<option value={option.id} key={option.id}>{option.label}</option>
+												))}
+											</select>
+										</>
 									)}
+									<div className="canvas-view-switch">
+										<button type="button" className={state.canvasView === 'static' ? 'is-active' : ''} onClick={() => store.setCanvasView('static')}>静态</button>
+										<button type="button" className={state.canvasView === 'runtime' ? 'is-active' : ''} onClick={() => store.setCanvasView('runtime')} disabled={state.snapshots.length === 0}>运行</button>
+									</div>
 									<span className={`coverage-badge is-${state.coverage.state}`}>{state.coverage.state}</span>
-									{state.mode === 'debug' && <span className="canvas-meta-label">{state.canvasView === 'static' ? '保存后更新' : '只投影结构化值'}</span>}
 								</div>
 							</div>
 							{state.staticError && state.mode === 'debug' && state.canvasView === 'static' && (
@@ -157,6 +182,7 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 							<SceneCanvas
 								scene={state.scene}
 								mode={state.mode}
+								graphView={state.graphView}
 								layout={state.manualBoard.layout}
 								diff={state.diff}
 								selectedNodeId={state.selectedNodeId}

@@ -45,7 +45,7 @@ export function FileSidebar({ state, onOpenFile, onMode, onAddCard, onCreateWork
 			<div className="pane-divider" />
 			<div className="pane-heading">
 				<span>函数工作台</span>
-				<button type="button" className="pane-action" onClick={onCreateWorkbench}>新建</button>
+				<button type="button" className="pane-action" onClick={onCreateWorkbench} disabled={!state.activeFile.toLowerCase().endsWith('.py')} title={state.activeFile.toLowerCase().endsWith('.py') ? '从当前 Python 文件创建工作台' : '工作台目前只支持 Python'}>新建</button>
 			</div>
 			{state.workbench ? (
 				<button type="button" className={`board-row ${state.activeFile === state.workbench.path ? 'is-active' : ''}`} onClick={() => onOpenWorkbench(state.workbench!.path)}>

@@ -9,6 +9,7 @@ import type {
 	HostClient,
 	LanguagePackage,
 	RealRunRequest,
+	GraphView,
 	StaticAnalysis,
 	WorkbenchInfo,
 	ThreadStopContext,
@@ -81,8 +82,8 @@ export class WebSocketHostClient implements HostClient {
 		await this.request('workbench.write', { path, content });
 	}
 
-	async analyzeFile(path: string): Promise<StaticAnalysis> {
-		return this.request<StaticAnalysis>('analysis.analyze', { path });
+	async analyzeFile(path: string, view: GraphView = 'overview', focus?: string): Promise<StaticAnalysis> {
+		return this.request<StaticAnalysis>('analysis.analyze', { path, view, focus });
 	}
 
 	async writeFile(path: string, content: string): Promise<void> {

@@ -12,13 +12,16 @@
 | @vitejs/plugin-react | 5.2.0 | MIT | 构建依赖 |
 | Monaco Editor | 0.57.0 | MIT | 编辑器；主包约 3.0 MB；worker/语言包另计 |
 | DOMPurify（Monaco 传递依赖，override） | 3.4.17 | MPL-2.0 OR Apache-2.0 | 通过 npm overrides 修正安全版本；发布前复核 |
-| TypeScript | 5.9.3 | Apache-2.0 | 开发依赖 |
+| TypeScript | 5.9.3 | Apache-2.0 | 构建/运行时依赖；`desktop/analyzers/js_analyzer.mjs` 通过 Node 子进程调用其 compiler API 做 TS/JS 静态分析 |
+| @dagrejs/dagre | 3.1.1 | MIT | 静态图分层布局（TB、network-simplex）；运行时依赖 |
 | pywebview | 6.2.1 | BSD-3-Clause | 桌面壳 |
 | websockets | 17.1 | BSD-3-Clause | 本地桥 |
 | debugpy | 1.6.7（宿主当前版本） | MIT | 真实 Python 调试；需另核 vendored pydevd 等第三方声明 |
 | legacy tokens.css | `E:\算法思考工具` v0.3.9，a1880ad... | MIT | 保留来源注释；只沿用颜色/尺寸/字体族 |
 | legacy brand.png / app.ico | 同上 | MIT | 品牌视觉；与旧项目同源，发布前确认品牌归属 |
-| VSCode 源码 | 固定 `c024bfb636e6db359ca29775b88c819866c84863` | MIT | 只读参考与契约重述；未复制 workbench 实现 |
+| VSCode 源码 | 固定 `c024bfb636e6db359ca29775b88c819866c84863` | MIT | 只读参考与契约重述；未复制 workbench 实现。图视图参考 VSCode Call Graph/Function Call Graph 等扩展的交互范式，未复制其代码 |
+| VSCode Call Graph / Function Call Graph / Code Visualizer / CodeReader | Marketplace 公开条目 | 各自许可 | 只读参考“聚焦/调用层级/缩放”交互；未复制源码或打包扩展 |
+| GitDiagram / CodeGraph | GitHub/Gitee 公开项目 | 各自许可 | 只读参考交互；未复制实现；关系由本项目 AST 分析器生成 |
 
 “clean-room”在本项目表示独立仓库、独立实现；研究者读过 VSCode 源码，并非法律意义上的双团队隔离认证。
 

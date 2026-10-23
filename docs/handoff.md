@@ -1,6 +1,6 @@
 # 交接说明
 
-更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy、函数工作台、AST 静态结构图、完整运行记录与回放已接通，其余语言待填。
+更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy、函数工作台、三视图静态结构图（Python/TS-JS）、完整运行记录与回放已接通，C/C++/Java 与其余真实调试适配器待填。
 
 ## 先读
 
@@ -37,6 +37,7 @@ desktop/
     windows_supervisor.py Job Object 限额 + debugpy 启动/回收
     real_debug_service.py 真实 debugpy attach/采集
     static_analysis.py Python AST → 静态 Scene
+    graph_views.py    语言无关的总览/结构/数据过滤、聚焦与阅读上限
     workbench.py      干净工作台 + 隐藏继承 context
     socket_transport.py  loopback DAP socket
     workspace.py       安全路径、原子写、boards
@@ -45,6 +46,8 @@ desktop/
     scripted_adapter.py 内存 DAP 演示
     debug_service.py   DAP→归一化事件、采集、预算
     execution_policy.py 默认拒绝的 grant 策略
+  analyzers/
+    js_analyzer.mjs   TypeScript compiler API → 同一静态 Scene（Node 子进程）
 languages/*/manifest.json
 docs/
 ```
@@ -60,10 +63,11 @@ docs/
 ## 工作台/静态图扩展点
 
 - `workbench.py` 只支持 Python；`_template`/`_context_source` 是继承机制的入口。
-- `static_analysis.py` 是启发式结构图；`executable_lines` 供完整运行自动设断点。新增语言时按“节点/边契约”提供等价分析器，不要把静态推断写成运行时事实。
-- UI 的“结构/运行”视图在 `StudioStore.canvasView`；静态图使用 `origin: static` 和自动 BFS 布局。
+- `static_analysis.py` 是 Python 启发式结构图；`executable_lines` 供完整运行自动设断点。`graph_views.py` 是语言无关的视图/聚焦过滤；新增语言时按“节点/边契约”提供等价分析器，不要把静态推断写成运行时事实。
+- TS/JS 由 `desktop/analyzers/js_analyzer.mjs` 解析，宿主 `_analyze_js` 调用后再过 `graph_views`；不执行 Node 中的用户代码。
+- UI 的“静态/运行”视图在 `StudioStore.canvasView`，静态图的“总览/结构/数据”在 `graphView`，聚焦节点在 `graphFocus`。
+- 静态布局：`SceneCanvas` 的 dagre TB + 类成员三列网格 + `ResizeObserver` 自动适配；阅读上限在 `graph_views.py`。
 - 完整运行由 `RealDebugService(auto_record=True)` 自动逐行断点/continue；回放由 `StudioStore.togglePlayback/setPlaybackSpeed` 驱动，帧上限 500。
-- 大型图需要聚焦/折叠；当前静态图最低缩放 68%，可平移。
 
 ## 添加其他语言适配器的顺序
 
@@ -94,7 +98,7 @@ UI 改动需启动 Vite 并用真实浏览器/窗口点过；只看 diff 不算�
 
 ## 下一个任务
 
-**真窗口人工验收 + 完整运行/回放体验。** 先让主人实际点一次原生确认框，测 IME/DPI/快捷键/崩溃恢复；再补运行中改断点、嵌套函数/共享引用/循环引用/异常、更多容器与 trace 持久化。之后才接 GDB/js-debug/java-debug/LSP。
+**静态图继续深挖 + 真窗口验收。** 先补跨文件符号解析、递归/超大类自动聚合、成员点击导航；随后让主人实际点一次原生确认框，测 IME/DPI/快捷键/崩溃恢复；再补运行中改断点、嵌套函数/共享引用/循环引用/异常、更多容器与 trace 持久化。C/C++/Java 接真实解析器，GDB/js-debug/java-debug/LSP 逐个 spike。
 
 ## 禁止
 

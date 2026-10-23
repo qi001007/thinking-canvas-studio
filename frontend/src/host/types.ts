@@ -53,11 +53,24 @@ export interface WorkbenchInfo {
 	readonly content: string;
 }
 
+export type GraphView = 'overview' | 'structure' | 'data';
+
+export interface GraphFocusOption {
+	readonly id: string;
+	readonly label: string;
+	readonly kind: string;
+	readonly line?: number;
+}
+
 export interface StaticAnalysis {
 	readonly scene: SceneDto;
 	readonly coverage: Coverage;
 	readonly error?: string;
 	readonly sourceFile?: string;
+	readonly view?: GraphView;
+	readonly focus?: string | null;
+	readonly focusOptions?: readonly GraphFocusOption[];
+	readonly hiddenNodeCount?: number;
 	readonly stats?: {
 		readonly nodes: number;
 		readonly edges: number;
@@ -85,7 +98,7 @@ export interface HostClient {
 	createWorkbench(sourceFile: string): Promise<WorkbenchInfo>;
 	readWorkbench(path: string): Promise<WorkbenchInfo>;
 	writeWorkbench(path: string, content: string): Promise<void>;
-	analyzeFile(path: string): Promise<StaticAnalysis>;
+	analyzeFile(path: string, view?: GraphView, focus?: string): Promise<StaticAnalysis>;
 	readFile(path: string): Promise<string>;
 	writeFile(path: string, content: string): Promise<void>;
 	loadManualBoard(): Promise<ManualBoard>;

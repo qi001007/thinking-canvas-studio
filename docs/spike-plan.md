@@ -8,9 +8,9 @@
 |---|---|---|---|
 | S1 Monaco / 浏览器壳 | 部分完成 | Vite + React + Monaco 在 1680×1050 无头 Edge 渲染；语法高亮、断点 gutter、当前行；隐藏窗口真实运行 | 中文 IME、DPI、快捷键焦点、WebView2 崩溃恢复 |
 | S1b 性能/壳 | 未做 | 仅记录 Monaco 主包约 3.0 MB / gzip 约 0.8 MB | 冷启、键入延迟、10 MiB 文件、内存峰值 |
-| S2 本地桥 | 完成（loopback） | WS JSON-RPC、token、Origin、allowlist、错误 token 关闭；46 项 Python 测试 | 真实 adapter 下的并发/超时/断线/进程回收 |
+| S2 本地桥 | 完成（loopback） | WS JSON-RPC、token、Origin、allowlist、错误 token 关闭；55 项 Python 测试 | 真实 adapter 下的并发/超时/断线/进程回收 |
 | S3 Python 调试 | **真实完成** | debugpy attach + 断点；停点/步过/locals/list；完整运行自动逐行记录 12 帧；Job Object 回收；集成测试通过 | 跨文件自动记录；大型循环采样；运行中改断点 |
-| S7 采集→Scene | 演示完成 | DAP 变量树→`CardData`→Scene；容器/字典/栈帧；差异高亮；静态 AST → 结构图 | 真实容器语义、别名证据、预算/coverage、大容器分页、大型图聚焦 |
+| S7 采集→Scene | 部分完成 | DAP 变量树→`CardData`→Scene；容器/字典/栈帧；差异高亮；Python/TS-JS 静态图；总览/结构/数据三视图 + 聚焦 + 类成员网格 | 真实容器语义、别名证据、大容器分页、递归/超大类自动聚合、跨文件解析 |
 | S8 数据/隔离 | 部分完成 | 工作区路径约束、boards 原子写、手绘/trace 分离、隐藏工作台 context | trace 持久化、坏文件恢复、legacy 导入 |
 | S9 强制监管 | **Windows 完成** | Job Object 时间/内存/进程数 + wall timeout；真实 debugpy 测试 | Linux cgroup/rlimit；文件/网络隔离另立模型 |
 
@@ -18,8 +18,8 @@
 
 1. **S1 真窗口**：`python desktop/app.py` 加载 `frontend/dist`；测 IME、DPI、Ctrl+S、焦点、WebView2 崩溃恢复。隐藏窗口和真实运行已通过。
 2. **扩展真实 Python 采集**：嵌套函数、共享引用、循环引用、异常、tensor/大容器；运行中更新断点；保存 DAP 流/清理证据。
-3. **S7 真实采集 + 静态图 + 时间线**：真实 Python 已接基础 Locals、AST 结构图、自动逐行记录与回放；补容器语义、别名证据、1000 元素分页、共享/循环图、跨文件记录；大型类/递归图聚焦/折叠。
-4. **S4/S6/S5**：GDB、js-debug、java-debug、LSP 分别 spike；每种语言单独验收。
+3. **S7 静态图**：三视图/聚焦/节点上限已接；下一步跨文件符号解析、递归和超大类的自动聚合、可点击成员导航；C/C++/Java 接真实解析器。
+4. **S4/S6/S5**：GDB、js-debug、java-debug、LSP 分别 spike；每种语言单独验收。TS/JS 静态图不等于 js-debug 调试。
 5. **S8**：trace 文件、恢复、导入；手绘完整编辑能力按产品阶段补。
 
 ## 验收门槛

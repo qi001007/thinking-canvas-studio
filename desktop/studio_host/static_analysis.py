@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .graph_views import default_focus, focus_options, select_graph_view
+
 MAX_NODES = 320
 MAX_EDGES = 520
 MAX_VARS_PER_SCOPE = 80
@@ -57,7 +59,7 @@ class StaticAnalyzer:
         self._function_calls = 0
         self._context_end_line = _context_end_line(workbench_source)
 
-    def analyze(self) -> dict[str, Any]:
+    def analyze(self, view: str = "overview", focus: str | None = None) -> dict[str, Any]:
         try:
             tree = ast.parse(self.workbench_source, filename=str(self.workbench_path))
         except SyntaxError as exc:
@@ -88,22 +90,34 @@ class StaticAnalyzer:
         for stmt in top_level:
             self._module_statement(stmt, module_id)
         coverage_state = "partial" if self.truncated or self.missing else "complete"
+        all_nodes = list(self.nodes.values())
+        all_edges = list(self.edges.values())
+        options = focus_options(all_nodes)
+        view = view if view in {"overview", "structure", "data"} else "overview"
+        module_id = f"static:module:{self.workbench_rel}"
+        selected_focus = focus if focus in self.nodes else default_focus(all_nodes, view, module_id)
+        view_nodes, view_edges, selected_focus = select_graph_view(all_nodes, all_edges, view, selected_focus, module_id)
+        hidden = len(self.nodes) - len(view_nodes)
         return {
-            "scene": {"nodes": list(self.nodes.values()), "edges": list(self.edges.values())},
+            "scene": {"nodes": view_nodes, "edges": view_edges},
             "coverage": {
                 "state": coverage_state,
                 "reason": "Static analysis budget reached." if self.truncated else None,
                 "knownMissing": sorted(self.missing),
             },
             "stats": {
-                "nodes": len(self.nodes),
-                "edges": len(self.edges),
-                "functions": sum(1 for node in self.nodes.values() if node.get("card", {}).get("kind") == "function"),
-                "classes": sum(1 for node in self.nodes.values() if node.get("card", {}).get("kind") == "class"),
+                "nodes": len(view_nodes),
+                "edges": len(view_edges),
+                "functions": sum(1 for node in view_nodes if node.get("card", {}).get("kind") == "function"),
+                "classes": sum(1 for node in view_nodes if node.get("card", {}).get("kind") == "class"),
             },
             "sourceFile": self.source_rel,
             "traceLines": executable_lines(self.workbench_source),
             "origin": "static",
+            "view": view,
+            "focus": selected_focus,
+            "focusOptions": options,
+            "hiddenNodeCount": hidden,
         }
 
     def _module_statement(self, stmt: ast.stmt, module_id: str) -> None:
@@ -192,7 +206,8 @@ class StaticAnalyzer:
             "returns": returns,
             "line": stmt.lineno,
         }
-        if self._node(function_id, stmt.name, card, line=stmt.lineno) is None:
+        label = qualname if class_id else stmt.name
+        if self._node(function_id, label, card, line=stmt.lineno) is None:
             return None
         self._edge(parent, function_id, "method" if class_id else "defines", stmt.name)
         scope: dict[str, str] = {}
@@ -485,18 +500,21 @@ class StaticAnalyzer:
             if field_id in self.nodes:
                 self._edge(call_id, field_id, "targets", target)
                 return call_id
+        caller = function_id or owner
         resolved = self._resolve(base, scope)
         if resolved:
             self._edge(call_id, resolved, "targets", target)
-        elif "." not in target:
+            self._edge(caller, resolved, "calls", target)
+        elif "." not in target and target not in {"print", "len", "range", "enumerate", "abs", "min", "max", "sum", "int", "str", "float", "bool", "list", "dict", "set", "tuple", "type", "isinstance", "super"}:
             external = self._node(
                 f"static:external:call:{target}",
                 target,
                 {"kind": "external", "target": target, "category": "callable"},
             )
-            if external and target not in {"print", "len", "range", "enumerate", "int", "str", "float", "list", "dict", "set", "tuple"}:
+            if external:
                 self._edge(call_id, external, "targets", target)
-        else:
+                self._edge(caller, external, "calls", target)
+        elif "." in target:
             external = self._node(
                 f"static:external:call:{target}",
                 target,
@@ -504,6 +522,7 @@ class StaticAnalyzer:
             )
             if external:
                 self._edge(call_id, external, "targets", target)
+                self._edge(caller, external, "calls", target)
         self._function_calls = 0
         return call_id
 
@@ -781,6 +800,9 @@ def _expr_name(node: ast.expr | None) -> str | None:
     if isinstance(node, ast.Attribute):
         base = _expr_name(node.value)
         return f"{base}.{node.attr}" if base else node.attr
+    if isinstance(node, ast.Call):
+        base = _expr_name(node.func)
+        return f"{base}()" if base else None
     return None
 
 
@@ -822,10 +844,13 @@ def analyze_python(
     workbench_source: str,
     source_path: Path | None,
     source_source: str | None,
+    *,
+    view: str = "overview",
+    focus: str | None = None,
 ) -> dict[str, Any]:
     return StaticAnalyzer(
         workbench_path=workbench_path,
         workbench_source=workbench_source,
         source_path=source_path,
         source_source=source_source,
-    ).analyze()
+    ).analyze(view, focus)

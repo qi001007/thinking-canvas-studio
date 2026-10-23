@@ -1,6 +1,6 @@
 # 数据模型
 
-更新：2026-10-23。核心实现在 `frontend/core/domain/contracts.ts`、`frontend/core/canvas/*`；宿主实现见 `desktop/studio_host/*`。
+更新：2026-10-23。核心实现在 `frontend/core/domain/contracts.ts`、`frontend/core/canvas/*`；宿主实现见 `desktop/studio_host/*`，TS/JS 分析见 `desktop/analyzers/*`。
 
 ## 三种身份
 
@@ -54,6 +54,30 @@ ManualStep { id, title, createdAt, scene }
 - 布局/标注属于画板，不随步骤变化；步骤只冻结场景数据。
 - 查看历史步骤只读；回到当前可继续编辑。
 - 手绘与调试快照是两套文档；调试刷新不能覆盖手绘对象。
+
+## 静态图视图
+
+`analysis.analyze` 返回一次完整分析结果的过滤视图：
+
+```ts
+StaticAnalysis {
+  scene, coverage,
+  view: 'overview' | 'structure' | 'data',
+  focus?: string,          // 类/函数/方法节点 ID
+  focusOptions: [{ id, label, kind, line }],
+  hiddenNodeCount,
+  stats: { nodes, edges, functions, classes }
+}
+```
+
+- `origin: static`；节点/边 ID 在一次分析内稳定。
+- 总览只含 module/import/class/function；方法折叠到类卡，方法调用上提到类。
+- 结构：类焦点只展开一层（字段/方法/基类）；函数/方法焦点展开参数、局部变量、循环、调用目标、returns/flows。方法标题为 `类名.方法名`。
+- 数据：类焦点只含字段/构造参数；函数/方法焦点含局部数据、容器、读写与 flows。
+- 调用点卡（`kind: call`）保留在分析结果，但结构和数据视图默认过滤；关系用 `calls`/`targets` 边表达。
+- 阅读上限：总览 18 个顶层符号；类结构 6 字段 + 6 方法 + 基类；类数据 12 个字段/参数；方法/函数视图 36 节点。未显示成员仍在 `focusOptions` 中。
+- 分析预算：320 节点 / 520 边；超出标记 `coverage: partial`。视图上限不改变 coverage，只改变当前展示。
+- Python 与 TS/JS 输出同一 Scene/Card 形状；TS/JS 分析器不推断运行时类型。
 
 ## 调试快照
 
@@ -116,7 +140,7 @@ workspace/
 | `workspace.list/readText/writeText` | 文件列表与文本读写 |
 | `boards.load/save` | 手绘画板 |
 | `workbench.create/info/read/write` | 创建/读取/保存函数工作台 |
-| `analysis.analyze` | 分析工作台/源文件并返回静态 Scene |
+| `analysis.analyze` | 分析工作台/源文件并返回静态 Scene；`view` + `focus` 控制总览/结构/数据 |
 | `debug.start` | 启动脚本演示 |
 | `debug.startReal` | 用单次 approval receipt 启动真实 debugpy；`mode: debug/record`；可运行工作台 |
 | `debug.stop/continue/step/pause` | 会话控制 |

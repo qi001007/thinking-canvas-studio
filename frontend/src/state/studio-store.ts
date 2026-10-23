@@ -12,7 +12,7 @@ import type {
 	StackFrameSnapshot,
 	TraceSnapshot
 } from '@core/domain/contracts';
-import type { AppInfo, ConsoleLine, FileEntry, HostClient, LanguagePackage, StaticAnalysis, WorkbenchInfo } from '@/host/types';
+import type { AppInfo, ConsoleLine, FileEntry, GraphFocusOption, GraphView, HostClient, LanguagePackage, StaticAnalysis, WorkbenchInfo } from '@/host/types';
 
 export type StudioMode = 'manual' | 'debug';
 const MAX_SNAPSHOTS = 500;
@@ -49,6 +49,9 @@ export interface StudioState {
 	readonly savedText: string;
 	readonly mode: StudioMode;
 	readonly canvasView: 'static' | 'runtime';
+	readonly graphView: GraphView;
+	readonly graphFocus?: string;
+	readonly graphFocusOptions: readonly GraphFocusOption[];
 	readonly workbench?: WorkbenchInfo;
 	readonly staticScene: SceneDto;
 	readonly staticCoverage: Coverage;
@@ -107,6 +110,8 @@ export function initialState(): StudioState {
 		savedText: '',
 		mode: 'debug',
 		canvasView: 'static',
+		graphView: 'overview',
+		graphFocusOptions: [],
 		staticScene: EMPTY_SCENE,
 		staticCoverage: { state: 'unknown', knownMissing: ['No static analysis.'] },
 		manualBoard: emptyManualBoard(),
@@ -394,6 +399,8 @@ export class StudioStore {
 				breakpoints: [],
 				mode: 'debug',
 				canvasView: 'static',
+				graphView: 'overview',
+				graphFocus: undefined,
 				status: `工作台已创建：${info.path}`
 			});
 			await this.analyze(info.path);
@@ -423,21 +430,56 @@ export class StudioStore {
 	async analyze(path: string): Promise<void> {
 		if (!path) return;
 		try {
-			const result = await this.host.analyzeFile(path);
+			const result = await this.host.analyzeFile(path, this.state.graphView, this.state.graphFocus);
 			if (result.error) {
-				this.set({ staticError: result.error, status: `静态分析：${result.error}` });
+				this.set({
+					staticScene: EMPTY_SCENE,
+					staticCoverage: { state: 'unknown', reason: result.error, knownMissing: ['static structure'] },
+					staticStats: undefined,
+					staticError: result.error,
+					graphFocusOptions: [],
+					status: `静态分析：${result.error}`
+				});
+				this.refreshScene();
 				return;
 			}
 			this.set({
 				staticScene: result.scene,
 				staticCoverage: result.coverage,
 				staticStats: result.stats,
-				staticError: undefined
+				staticError: undefined,
+				graphView: result.view ?? this.state.graphView,
+				graphFocus: result.focus ?? undefined,
+				graphFocusOptions: result.focusOptions ?? []
 			});
 			if (this.state.canvasView === 'static' || this.state.mode === 'manual') this.refreshScene();
 		} catch (error) {
-			this.set({ staticError: errorMessage(error), status: `静态分析失败：${errorMessage(error)}` });
+			this.set({
+				staticScene: EMPTY_SCENE,
+				staticCoverage: { state: 'unknown', reason: errorMessage(error), knownMissing: ['static structure'] },
+				staticStats: undefined,
+				staticError: errorMessage(error),
+				graphFocusOptions: [],
+				status: `静态分析失败：${errorMessage(error)}`
+			});
+			this.refreshScene();
 		}
+	}
+
+	setGraphView(view: GraphView): void {
+		if (this.state.graphView === view) return;
+		this.set({ graphView: view, canvasView: 'static', graphFocus: undefined });
+		void this.analyze(this.state.activeFile);
+	}
+
+	focusGraphNode(nodeId: string): void {
+		this.set({ graphView: 'structure', canvasView: 'static', graphFocus: nodeId });
+		void this.analyze(this.state.activeFile);
+	}
+
+	clearGraphFocus(): void {
+		this.set({ graphView: 'overview', canvasView: 'static', graphFocus: undefined });
+		void this.analyze(this.state.activeFile);
 	}
 
 	setCanvasView(view: 'static' | 'runtime'): void {

@@ -17,6 +17,7 @@ export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep
 	const hasSession = !!state.session && state.debug.sessionState !== 'ended';
 	const dirty = state.editorText !== state.savedText;
 	const modeLabel = state.mode === 'manual' ? '手绘' : '调试';
+	const pythonRunnable = state.activeFile.toLowerCase().endsWith('.py');
 	const activeLabel = state.activeFile.replace(/\\/g, '/').startsWith('.thinking-canvas/workbench/')
 		? `函数工作台 · ${state.workbench?.sourceFile ?? '源文件'}`
 		: state.activeFile;
@@ -46,10 +47,10 @@ export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep
 					<>
 						{state.hostMode === 'desktop' && (
 							<>
-								<button type="button" className="btn btn-primary" onClick={() => onStartReal('record')} disabled={state.running} title="自动记录每一行，最多 500 帧；会弹出原生确认">
+								<button type="button" className="btn btn-primary" onClick={() => onStartReal('record')} disabled={state.running || !pythonRunnable} title={pythonRunnable ? '自动记录每一行，最多 500 帧；会弹出原生确认' : '真实运行目前只支持 Python；该文件可先查看静态结构'}>
 									<span className="run-triangle" /> 完整运行
 								</button>
-								<button type="button" className="btn" onClick={() => onStartReal('debug')} disabled={state.running} title="只停在断点；可步进/继续">
+								<button type="button" className="btn" onClick={() => onStartReal('debug')} disabled={state.running || !pythonRunnable} title="只停在断点；可步进/继续">
 									调试运行
 								</button>
 							</>
