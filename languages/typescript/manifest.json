@@ -1,0 +1,13 @@
+{
+  "id": "typescript",
+  "name": "TypeScript / JavaScript",
+  "extensions": [".ts", ".tsx", ".js", ".jsx"],
+  "adapter": "js-debug",
+  "status": "not-installed",
+  "launch": {
+    "request": "launch",
+    "program": "${file}",
+    "runtimeExecutable": "node"
+  },
+  "notes": "Node 与 source map 路径尚未验证；不能以 Python 适配器成功代替。"
+}

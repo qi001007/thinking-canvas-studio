@@ -1,0 +1,13 @@
+{
+  "id": "python",
+  "name": "Python",
+  "extensions": [".py", ".pyi"],
+  "adapter": "debugpy",
+  "status": "demo",
+  "launch": {
+    "request": "launch",
+    "program": "${file}",
+    "console": "internalConsole"
+  },
+  "notes": "演示适配器已接通；真实 debugpy 启动仍需受信 supervisor 与显式授权。"
+}

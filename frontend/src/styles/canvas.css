@@ -1,0 +1,361 @@
+.scene-viewport {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	background-color: var(--paper);
+	background-image: radial-gradient(var(--line-strong) 0.8px, transparent 0.8px);
+	background-size: 22px 22px;
+	touch-action: none;
+}
+
+.scene-surface {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 2400px;
+	height: 1600px;
+	transform-origin: 0 0;
+}
+
+.scene-edges {
+	position: absolute;
+	inset: 0;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.scene-edge {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 1.3;
+	opacity: 0.55;
+}
+
+.scene-edge-points-to {
+	stroke: var(--accent-bright);
+	opacity: 0.7;
+}
+
+.scene-edge-alias {
+	stroke: var(--violet);
+	stroke-dasharray: 5 4;
+	opacity: 0.7;
+}
+
+.canvas-card {
+	position: absolute;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	box-shadow: var(--shadow-sm);
+	overflow: hidden;
+	user-select: none;
+	transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.canvas-card:hover {
+	border-color: var(--line-strong);
+	box-shadow: var(--shadow-md);
+}
+
+.canvas-card.is-selected {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-md);
+}
+
+.canvas-card.is-changed {
+	border-color: var(--amber-line);
+	box-shadow: 0 0 0 2px var(--amber-soft), var(--shadow-sm);
+}
+
+.canvas-card-head {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 7px 10px;
+	background: var(--surface-soft);
+	border-bottom: 1px solid var(--line);
+	cursor: grab;
+}
+
+.canvas-card:active .canvas-card-head {
+	cursor: grabbing;
+}
+
+.canvas-card-title {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.canvas-card-type {
+	margin-left: auto;
+	font-family: var(--font-mono);
+	font-size: 8px;
+	color: var(--faint);
+	white-space: nowrap;
+}
+
+.canvas-change-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--amber);
+	flex: 0 0 auto;
+}
+
+.canvas-card-body {
+	padding: 8px 10px 10px;
+}
+
+.canvas-card-body.muted {
+	color: var(--faint);
+	font-size: 10px;
+}
+
+.canvas-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	max-width: 100%;
+	overflow: auto;
+}
+
+.canvas-grid-row {
+	display: flex;
+	gap: 3px;
+}
+
+.canvas-cell {
+	min-width: 27px;
+	padding: 4px 6px;
+	text-align: center;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	background: var(--surface-soft);
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	color: var(--ink);
+}
+
+.canvas-cell.is-changed {
+	background: var(--amber-soft);
+	border-color: var(--amber-line);
+	color: var(--amber);
+}
+
+.canvas-items {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 122px;
+	overflow: auto;
+}
+
+.canvas-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 4px;
+	border-radius: 4px;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	color: var(--ink);
+}
+
+.canvas-item.is-changed {
+	background: var(--amber-soft);
+	color: var(--amber);
+}
+
+.canvas-item-index {
+	min-width: 16px;
+	color: var(--faint);
+}
+
+.canvas-dict-key {
+	min-width: 44px;
+	color: var(--accent);
+}
+
+.canvas-field-name {
+	min-width: 58px;
+	color: var(--accent);
+}
+
+.canvas-big-value {
+	padding: 3px 2px 1px;
+	font-family: var(--font-mono);
+	font-size: 17px;
+	color: var(--ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.canvas-frame-loc {
+	font-family: var(--font-mono);
+	font-size: 9px;
+	color: var(--muted);
+}
+
+.canvas-sticky {
+	padding: 8px;
+	border-radius: 6px;
+	background: var(--surface-tint);
+	color: var(--ink-soft);
+	font-size: 10px;
+	line-height: 1.65;
+}
+
+.canvas-sticky.is-invariant {
+	background: var(--green-soft);
+	border: 1px solid var(--green-line);
+	color: var(--green);
+}
+
+.canvas-function {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	font-size: 10px;
+}
+
+.canvas-signature {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--accent-ink);
+}
+
+.canvas-function-meta {
+	display: flex;
+	gap: 8px;
+	color: var(--ink-soft);
+}
+
+.canvas-function-meta span {
+	min-width: 26px;
+	color: var(--faint);
+}
+
+.canvas-complexity {
+	font-family: var(--font-mono);
+	font-size: 9px;
+	color: var(--faint);
+}
+
+.canvas-tensor {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	font-size: 10px;
+}
+
+.canvas-tensor > div {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	color: var(--ink-soft);
+}
+
+.canvas-tensor > div span {
+	color: var(--faint);
+}
+
+.canvas-tensor-preview {
+	font-family: var(--font-mono);
+	font-size: 9px;
+	color: var(--muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.canvas-empty {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	pointer-events: none;
+	color: var(--muted);
+}
+
+.canvas-empty-mark {
+	display: grid;
+	grid-template-columns: repeat(2, 15px);
+	gap: 4px;
+	opacity: 0.5;
+	margin-bottom: 2px;
+}
+
+.canvas-empty-mark span {
+	width: 15px;
+	height: 15px;
+	border: 1px solid var(--accent);
+	border-radius: 3px;
+}
+
+.canvas-empty p {
+	margin: 0;
+	font-size: 12px;
+	color: var(--ink-soft);
+}
+
+.canvas-empty small {
+	font-size: 10px;
+	color: var(--faint);
+}
+
+.canvas-zoom {
+	position: absolute;
+	right: 12px;
+	bottom: 12px;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 3px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	box-shadow: var(--shadow-sm);
+}
+
+.canvas-zoom button {
+	width: 24px;
+	height: 22px;
+	border: 0;
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+	font-size: 13px;
+	padding: 0;
+}
+
+.canvas-zoom button:hover {
+	color: var(--accent);
+}
+
+.canvas-zoom span {
+	min-width: 34px;
+	text-align: center;
+	font-family: var(--font-mono);
+	font-size: 9px;
+	color: var(--faint);
+}
+
+.canvas-zoom .canvas-fit {
+	width: auto;
+	padding: 0 6px;
+	font-size: 9px;
+}
+.canvas-empty-inline {
+	padding: 8px 4px;
+	font-size: 10px;
+	color: var(--faint);
+}

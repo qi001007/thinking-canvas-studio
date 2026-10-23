@@ -21,8 +21,12 @@
 
 删除旧文件：0；移动旧文件：0；改写旧源代码：0。
 
-已确认独立目录后，采用从零建新仓库完成架构隔离，保留原目录作为legacy/manual reference。新仓库不继承旧 .git、app/web/site/tests、历史构建缓存、exe或boards；唯一代码资产沿用是带MIT来源声明的 tokens.css。新仓库独立 Git 初始提交，不接旧仓库远端，也未向GitHub发布。
+已确认独立目录后，采用从零建新仓库完成架构隔离，保留原目录作为legacy/manual reference。新仓库不继承旧 .git、app/web/site/tests、历史构建缓存、exe或boards；沿用的资产只有带 MIT 来源声明的 `tokens.css`、品牌图和图标。新仓库独立 Git 初始提交，已发布到 https://github.com/qi001007/thinking-canvas-studio（main）。
 
 ## 后续破坏性操作
 
 如果将来决定删除/搬移旧目录，应重新给出具体清单和可恢复归档，确认用户画板在备份中后才执行。新仓库开发不需要先删除旧仓库。
+
+## 2026-10-23 方向纠正
+
+主人明确：本产品是新的轻量代码编辑器 + 语言无关图形调试器，不是旧画布的改良版。旧项目只读参考视觉/卡片/时间线；新架构见 architecture.md。Phase 1 底座已落地（Monaco、共享画布、脚本化 DAP、WS 桥、工作区）；真实适配器未接。

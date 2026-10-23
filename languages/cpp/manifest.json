@@ -1,0 +1,13 @@
+{
+  "id": "cpp",
+  "name": "C / C++",
+  "extensions": [".c", ".h", ".cpp", ".hpp"],
+  "adapter": "gdb",
+  "status": "not-installed",
+  "launch": {
+    "request": "launch",
+    "program": "${workspaceFolder}/build/a.out",
+    "stopAtEntry": false
+  },
+  "notes": "GDB DAP 路径尚未验证；需要 Windows GDB 17.2 / WSL 实验记录。"
+}

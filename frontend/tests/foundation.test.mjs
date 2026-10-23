@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initialDebugModelState, isThreadInspectable, reduceDebugEvent } from '../application/debug-model.ts';
-import { DebugViewModel } from '../application/debug-view-model.ts';
-import { createTraceSnapshot } from '../canvas/documents.ts';
-import { projectSnapshot } from '../canvas/projector.ts';
-import { presentCommandAvailability, presentVariablePage, presentVariableRows } from '../presentation/presenters.ts';
+import { initialDebugModelState, isThreadInspectable, reduceDebugEvent } from '../core/application/debug-model.ts';
+import { DebugViewModel } from '../core/application/debug-view-model.ts';
+import { createManualStep, createTraceSnapshot } from '../core/canvas/documents.ts';
+import { diffScenes } from '../core/canvas/diff.ts';
+import { projectSnapshot } from '../core/canvas/projector.ts';
+import { presentCommandAvailability, presentVariablePage, presentVariableRows } from '../core/presentation/presenters.ts';
 
 const caps = { stackTrace: true, scopes: true, variables: true, evaluate: true, setVariable: true, readMemory: true };
 const missingCaps = { stackTrace: true, scopes: true, variables: true, evaluate: false, setVariable: false, readMemory: false };
@@ -232,4 +233,64 @@ test('page presenter makes variable paging explicit', () => {
 	const values = Array.from({ length: 205 }, (_, i) => ({ id: `${i}`, name: `v${i}`, value: `${i}`, children: [] }));
 	assert.deepEqual({ rows: presentVariablePage(values).rows.length, hasMore: presentVariablePage(values).hasMore }, { rows: 100, hasMore: true });
 	assert.deepEqual({ rows: presentVariablePage(values, 2).rows.length, hasMore: presentVariablePage(values, 2).hasMore }, { rows: 5, hasMore: false });
+});
+
+test('projected cards expose list, dict and tensor payloads for the shared renderer', () => {
+	const snapshot = {
+		id: 'trace-cards', capturedAt: 'time', runId: 'run', sessionId: 'session',
+		coverage: { state: 'complete', knownMissing: [] },
+		frames: [{
+			id: 'frame', name: 'main', source: 'main.py', line: 4,
+			scopes: [{
+				id: 'locals', name: 'Locals', expensive: false,
+				values: [
+					{ id: 'nums', name: 'nums', value: '[1, 2]', type: 'list[int]', structure: 'container', containerKind: 'list', children: [
+						{ id: 'n0', name: '[0]', value: '1', children: [] },
+						{ id: 'n1', name: '[1]', value: '2', children: [] }
+					] },
+					{ id: 'seen', name: 'seen', value: '{1: 0}', type: 'dict[int, int]', structure: 'container', containerKind: 'dict', children: [
+						{ id: 'k1', name: '1', value: '0', children: [] }
+					] },
+					{ id: 'tensor', name: 'tensor', value: 'tensor([...])', type: 'Tensor', structure: 'tensor', tensorMetadata: { shape: [2, 3], dtype: 'float32' }, children: [] }
+				]
+			}]
+		}]
+	};
+	const { scene } = projectSnapshot(snapshot);
+	const nums = scene.nodes.find(node => node.label === 'nums');
+	const seen = scene.nodes.find(node => node.label === 'seen');
+	const tensor = scene.nodes.find(node => node.label === 'tensor');
+	assert.deepEqual(nums.card, { kind: 'list', items: [{ value: '1' }, { value: '2' }] });
+	assert.deepEqual(seen.card, { kind: 'dict', entries: [{ key: '1', value: '0' }] });
+	assert.equal(tensor.card.kind, 'tensor');
+	assert.deepEqual(tensor.card.shape, [2, 3]);
+	assert.equal(tensor.card.dtype, 'float32');
+});
+
+test('scene diff marks changed cells without flagging unchanged siblings', () => {
+	const before = {
+		nodes: [{ id: 'n', valueId: 'v', label: 'nums', kind: 'container', card: { kind: 'array', rows: [[{ value: '1' }, { value: '2' }]] } }],
+		edges: []
+	};
+	const after = {
+		nodes: [{ id: 'n', valueId: 'v2', label: 'nums', kind: 'container', card: { kind: 'array', rows: [[{ value: '1' }, { value: '3' }]] } }],
+		edges: []
+	};
+	const diff = diffScenes(before, after);
+	assert.equal(diff.changedNodeIds.has('n'), true);
+	assert.equal(diff.changedValueIds.has('v2'), true);
+	assert.equal(diff.changedParts.get('n')?.has('cell:0:1'), true);
+	assert.equal(diff.changedParts.get('n')?.has('cell:0:0'), false);
+});
+
+test('manual step copies scene data and remains independent of later edits', () => {
+	const board = {
+		id: 'b', title: 'T', annotations: [], layout: { positions: {}, zoom: 1 }, steps: [],
+		scene: { nodes: [{ id: 'n', valueId: 'v', label: 'x', kind: 'manual', card: { kind: 'variable', value: '1' } }], edges: [] }
+	};
+	const step = createManualStep(board, '第一步');
+	assert.equal(step.title, '第一步');
+	assert.notEqual(step.scene, board.scene);
+	board.scene.nodes[0].card.value = '2';
+	assert.equal(step.scene.nodes[0].card.value, '1');
 });

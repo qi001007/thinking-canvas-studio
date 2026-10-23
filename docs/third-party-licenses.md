@@ -1,44 +1,44 @@
 # 参考源码与依赖许可清单
 
-核对日期：2026-10-23。区分“已纳入代码”和“候选集成”，本表不是全部传递依赖的最终 SBOM。发布前要对最终锁定版本逐文件保留 LICENSE/NOTICE；安装来源不能只记 latest。
+核对日期：2026-10-23。本表是当前直接依赖与已纳入资产，不是完整传递依赖 SBOM；发布前要按锁定版本逐项保留 LICENSE/NOTICE。
 
-## 本轮实际纳入
+## 已纳入
 
-| 内容 | 来源/许可 | 处理 |
+| 内容 | 版本/来源 | 许可 | 处理 |
+|---|---|---|---|
+| 本仓库核心、UI、宿主、测试、文档 | 本仓库 | MIT | 根 LICENSE |
+| React / React DOM | 19.3.1 | MIT | 运行时依赖；保留声明 |
+| Vite | 7.3.7 | MIT | 构建依赖 |
+| @vitejs/plugin-react | 5.2.0 | MIT | 构建依赖 |
+| Monaco Editor | 0.57.0 | MIT | 编辑器；主包约 3.0 MB；worker/语言包另计 |
+| DOMPurify（Monaco 传递依赖，override） | 3.4.17 | MPL-2.0 OR Apache-2.0 | 通过 npm overrides 修正安全版本；发布前复核 |
+| TypeScript | 5.9.3 | Apache-2.0 | 开发依赖 |
+| pywebview | 6.2.1 | BSD-3-Clause | 桌面壳 |
+| websockets | 17.1 | BSD-3-Clause | 本地桥 |
+| legacy tokens.css | `E:\算法思考工具` v0.3.9，a1880ad... | MIT | 保留来源注释；只沿用颜色/尺寸/字体族 |
+| legacy brand.png / app.ico | 同上 | MIT | 品牌视觉；与旧项目同源，发布前确认品牌归属 |
+| VSCode 源码 | 固定 `c024bfb636e6db359ca29775b88c819866c84863` | MIT | 只读参考与契约重述；未复制 workbench 实现 |
+
+“clean-room”在本项目表示独立仓库、独立实现；研究者读过 VSCode 源码，并非法律意义上的双团队隔离认证。
+
+## 待接入
+
+| 项目 | 许可 | 注意 |
 |---|---|---|
-| 新写的核心、host接口、文档/测试 | 本仓库 MIT | 根 LICENSE；尚未发布远端 |
-| legacy tokens.css | qi001007/thinking-canvas，v0.3.9，a1880adba9b9676eb807e2ae9eae28a18094d2b3，MIT | 沿用颜色/尺寸/字体族；保留来源注释与原 Copyright；未复制旧JS应用 |
-| TypeScript 5.9.3（仅开发依赖） | Apache-2.0，[官方LICENSE](https://github.com/microsoft/TypeScript/blob/main/LICENSE.txt) | package-lock固定；node_modules不作为产品源码交付 |
-| VSCode源码 | 固定c024bfb636e6db359ca29775b88c819866c84863，[MIT](https://github.com/microsoft/vscode/blob/c024bfb636e6db359ca29775b88c819866c84863/LICENSE.txt) | 只读参考与契约重述，未复制workbench实现代码 |
-
-“clean-room”在本项目表示独立仓库与独立实现；研究者直接读过源码，并非法律意义上严格隔离的双团队clean-room认证。
-
-## 待 spike / 待集成
-
-| 项目 | 官方主许可 | 计划与注意事项 |
-|---|---|---|
-| [Monaco Editor](https://github.com/microsoft/monaco-editor/blob/main/LICENSE.txt) | MIT | 编辑器；保留声明，锁定bundle里第三方资源 |
-| [pywebview](https://github.com/r0x0r/pywebview/blob/master/LICENSE) | BSD-3-Clause | 桌面壳候选；不把与旧版本不同的依赖假定兼容 |
-| [monaco-languageclient](https://github.com/TypeFox/monaco-languageclient/blob/main/packages/client/package.json) | MIT | classic仍依赖@codingame/monaco-vscode-*；最终锁文件逐项查license和notices |
-| [debugpy](https://github.com/microsoft/debugpy/blob/main/LICENSE) | MIT | 另核vendored pydevd等第三方声明，不能只抄主许可 |
-| [vscode-js-debug](https://github.com/microsoft/vscode-js-debug/blob/main/LICENSE) | MIT | 采用独立DAP入口；Node及传递依赖独立核验 |
-| [java-debug](https://github.com/microsoft/java-debug/blob/main/LICENSE.txt) | EPL-1.0 | 外置Java调试包；不得当MIT源码并入本体 |
-| [Eclipse JDT LS](https://github.com/eclipse-jdtls/eclipse.jdt.ls/blob/main/LICENSE) | EPL-2.0 | 语言服务及java-debug集成入口；工具JDK依赖单独记录 |
-| [GDB](https://sourceware.org/gdb/) | GPL-3.0-or-later，具体分发需检查例外/附带文件 | 用户提供或按需安装的外部程序；不抄GDB/GPL界面实现到MIT本体 |
-| WebView2 Runtime | Microsoft分发条款 | 优先使用已安装Runtime；若附安装器，按实际分发方案核验 |
-| Python/Node/JDK/编译器与LSP | 各发行版不同 | 按需安装、分别留版本/来源/许可；“Java支持”不等于可重分发任意JDK |
-| 字体 | 按实际字体包核验 | 当前只是CSS字体族名，不随包分发字体文件 |
-
-Monaco、LSP、DAP三条依赖分别管理。不要从“Monaco是MIT”推出整个桌面包都是MIT。
-
-用户明确指定 vscode-debug-visualizer、gdbgui 等 GPL 项目只参考交互；本轮未读取/复用其代码，因此没有它们的源码进入仓库。若将来研究，应先记录实际项目ref与license，继续执行禁止复制的约束。
-
-进程通信本身不自动决定GPL是否对组合适用；发行结构、协议耦合与是否再分发都需按实际方案核验。[GNU官方FAQ关于独立程序](https://www.gnu.org/licenses/gpl-faq.en.html#MereAggregation)。本轮不打包或分发GDB/Java工具。
+| debugpy | MIT | 另核 vendored pydevd 等第三方声明 |
+| GDB | GPL-3.0-or-later（具体分发需检查例外/附带文件） | 用户提供或按需安装的外部程序；不抄 GDB/GPL 界面实现到 MIT 本体 |
+| vscode-js-debug | MIT | 独立 DAP 入口；传递依赖单独核验 |
+| java-debug | EPL-1.0 | 外置；不得当 MIT 源码并入 |
+| Eclipse JDT LS | EPL-2.0 | 外置；工具 JDK 与项目 JDK 分开记录 |
+| monaco-languageclient | MIT | classic 仍带 @codingame VSCode API 兼容层；测体积与 notices |
+| WebView2 Runtime | Microsoft 分发条款 | 优先使用已安装 Runtime |
+| Python/Node/JDK/编译器 | 各发行版 | 按需安装、分别留版本/来源/许可；不把全部 runtime 打进 exe |
+| 字体 | 按实际字体包核验 | 当前只写 CSS 字体族名，不随包分发字体文件 |
 
 ## 发布门槛
 
-1. 从锁文件/构建产物列出直接与传递依赖，生成SBOM。
-2. 记录runtime安装源、版本、hash及用户确认；本地编辑/调试不需要云服务。
-3. 保留对应LICENSE/NOTICE、第三方版权与所需源代码提供信息。
-4. 确认没有VSCode商标资产、专有扩展/Marketplace限制内容或未经授权字体进入包。
-5. 对GDB/EPL语言包与exe分发结构做专项审核后再发布。
+1. 从锁文件/构建产物生成 SBOM，列出直接与传递依赖。
+2. 保留 LICENSE/NOTICE、版权与所需源代码提供信息。
+3. 确认没有 VSCode 商标资产、Marketplace 限制内容或未授权字体进入包。
+4. 对 GDB/EPL 语言包与 exe 分发结构做专项审核后再发布。
+5. 不把“Monaco 是 MIT”推成整个桌面包都是 MIT；GDB/Java 外置依赖单独说明。

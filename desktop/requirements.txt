@@ -1,0 +1,4 @@
+pywebview==6.2.1
+websockets==17.1
+# Optional: real Python adapter, not started by the demo bridge.
+# debugpy==1.6.7

@@ -1,3 +1,3 @@
 # frontend
 
-前端核心的 TypeScript 底座：定义调试数据契约、纯状态归约、视图焦点与异步请求门控、外部端口、画布投影和展示 DTO。这里不包含 Monaco、DOM、进程启动、文件权限或真实 DAP 适配器。
+Monaco + React 的桌面渲染层与纯 TypeScript 核心。`src/` 负责界面、编辑器、画布、面板、宿主客户端和 UI 状态；`core/` 负责调试模型、快照、场景投影、卡片与差异，不依赖 DOM/网络/文件。当前浏览器用 DemoHost，桌面用 WS Host。

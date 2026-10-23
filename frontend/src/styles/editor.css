@@ -1,0 +1,47 @@
+.tc-breakpoint::before {
+	content: '';
+	display: block;
+	width: 8px;
+	height: 8px;
+	margin: 6px auto;
+	border-radius: 50%;
+	background: var(--red);
+	box-shadow: 0 0 0 2px var(--red-soft);
+}
+
+.tc-breakpoint-mark {
+	border-left: 2px solid var(--red);
+}
+
+.tc-current-line {
+	background: var(--amber-soft) !important;
+}
+
+.tc-current-arrow::before {
+	content: '';
+	display: block;
+	width: 0;
+	height: 0;
+	margin: 5px auto;
+	border-top: 4px solid transparent;
+	border-bottom: 4px solid transparent;
+	border-left: 6px solid var(--amber);
+}
+
+.monaco-editor .margin {
+	background: #fbfaf6 !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
+	border-radius: 4px;
+}
+
+.monaco-editor .suggest-widget,
+.monaco-editor .monaco-hover {
+	border-radius: 8px !important;
+	box-shadow: var(--shadow-md) !important;
+}
+
+.monaco-editor .current-line {
+	border: none !important;
+}

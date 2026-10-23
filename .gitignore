@@ -13,6 +13,8 @@ coverage/
 
 # Private runtime / project data
 .studio-local/
+workspace/
+.scratch/
 *.trace.jsonl
 *.trace.bin
 *.grant

@@ -2,7 +2,7 @@
 
 本文记录 Thinking Canvas Studio 可借鉴的调试信息边界，不复制 VS Code 实现，也不把 DAP 的任意执行能力等同于安全的数据查看。VS Code 源码全部固定到提交 `c024bfb636e6db359ca29775b88c819866c84863`；下面每条源码链接都指向该 SHA。实现细节以所列文件为依据；不在所读文件内的行为明确标为“待查”。
 
-本轮 Phase 0 是 headless 底座；**产品 MVP 是可编辑、可设置断点和步进的 Python 调试工具**，不是只读快照检查器。以下 MVP/后续说的是产品分期；本轮代码没有连接真实 adapter 或 UI。
+状态：Phase 0 契约仍有效；Phase 1 已落地 React/Monaco UI、共享画布与脚本化 DAP 演示。真实 adapter 仍未接入；以下 MVP/后续仍是产品分期，不是完成声明。
 
 ## 组件契约矩阵（11 项）
 

@@ -1,40 +1,64 @@
 # Thinking Canvas Studio
 
-轻量桌面编辑器与调试画布的 **clean-room 底座**。当前不是可运行的 IDE，也没有连接真实调试器。
+轻量桌面代码编辑器 + 语言无关的图形化调试器。代码在 Monaco 里写，运行/单步时把变量、容器、引用、调用栈和变化投影到画布；同时保留独立的纯手绘画布。
 
-本仓库于 2026-10-23 从零建立。旧版 Thinking Canvas v0.3.9 保留在 `E:\算法思考工具`，代码、画板、exe 与 Git 历史均不迁移进新源码。它只作为视觉和手绘交互参考。
+当前是 **可运行的底座**：Monaco、React 桌面界面、共享画布、时间线、手绘模式、Python 本地宿主、WebSocket JSON-RPC 桥和脚本化 DAP 会话已经打通。**没有执行用户代码**；脚本化适配器只产生预设数据。真实 debugpy / GDB / JS / Java 适配器尚未接入。
 
-## 从这里开始
+![运行时画布](docs/screenshots/studio-debug.png)
 
-1. [审查结论与架构](docs/architecture.md)：为什么不用复制整个 VSCode workbench，哪些边界已经确定。
-2. [VSCode 调试 UX 契约](docs/vscode-debug-contract.md)：组件、数据、DAP、能力与分期。
-3. [Phase 1 与 spike 计划](docs/spike-plan.md)：下一步要验证什么，什么算通过。
-4. [实时进度](docs/实时进度.md)：已实现底座、未实现产品，分别记录。
-5. [给下一位实现者](docs/handoff.md)：模块所有权、依赖方向、首个任务。
-
-## 验证底座
-
-需要 Node.js 24.12+、npm 和 Python 3.11+。这里只跑本仓库自己的测试，不执行工作区用户程序。
+## 快速运行
 
 ```powershell
-cd E:\Thinking-Canvas-Studio
-npm ci --ignore-scripts
-npm run typecheck
-npm test
-python -m unittest discover -s desktop/studio_host/tests -t desktop -v
+npm install
+npm run dev                 # 浏览器演示：http://127.0.0.1:5173/
+npm run build
+python desktop/app.py       # pywebview 窗口，加载 frontend/dist
+python desktop/app.py --dev # 窗口加载 Vite 开发服务器
+python desktop/app.py --smoke
 ```
 
-具体脚本名以 package.json 为准。首次安装开发依赖需要网络；产品的编辑/调试目标是离线本地运行。语言工具仅在用户明确安装时下载。
+桌面壳需要 `desktop/requirements.txt` 中的 `pywebview` 与 `websockets`；浏览器演示不需要 Python。首次运行会在 `workspace/` 生成演示工作区（已忽略）。
 
-## 当前范围
+## 验证
 
-- TypeScript：调试状态、请求过期保护、视图状态、画布投影和持久文档的最小契约。
-- Python：本地服务端口、默认拒绝的执行策略、DAP 字节帧、JSON-RPC 边界。
-- 设计：沿用暖纸色、蓝色强调、白色卡片、右侧检查器、底部时间线。
-- 文档：源码索引、组件与协议契约、技术决策、spike、许可和接手顺序。
+```powershell
+npm run typecheck
+npm test                    # 19 项核心逻辑测试
+npm run test:python         # 46 项宿主测试
+npm run build
+```
 
-**尚未实现** Monaco 窗口、WebSocket 服务、DAP 会话驱动、真实语言调试、进程资源监管、文件持久化、画布渲染或动画。类型检查和单元测试不代表这些能力通过验收。
+## 目录
 
-产品与语言包按 [产品需求](docs/产品需求.md) 分阶段交付。不得把模拟数据演示标成实时调试。
+```text
+frontend/
+  src/                      React 壳、Monaco、画布、面板、时间线、宿主客户端
+  core/                     纯 TS：调试模型、场景投影、卡片、差异、快照
+  tests/                    Node 原生测试
+desktop/
+  app.py                    pywebview 入口、静态服务器、桥接信息
+  studio_host/              WS JSON-RPC 桥、工作区、DAP 会话、脚本化适配器、授权策略
+languages/                  语言包 manifest（Python / C++ / TS-JS / Java）
+docs/                       产品、架构、数据、契约、spike、进度、交接
+```
 
-MIT；参考与依赖分别见 [许可清单](docs/third-party-licenses.md)。
+## 产品边界
+
+- **编辑时不会知道运行时内存**。变量、容器和内存结构只在启动/停点后采集；不把静态推测冒充实测。
+- **DAP 给的是变量树与临时句柄，不是完整内存图**。画布只投影结构化值；标量留在变量表。
+- **连续运行只保留已采集的暂停快照**。没有逐步事件时明确标记 gap，不插值伪造中间状态。
+- **手绘画布与调试快照是两套事实**。它们共享 Scene/Card 渲染器和文件管理，但不会互相覆盖。
+- **真实执行默认拒绝**。没有受信 supervisor 与显式授权，不启动目标进程。脚本化会话在界面上标记为“脚本演示”。
+
+## 下一步
+
+1. 用真实 `debugpy` 打通 Python 断点/单步/变量/调用栈，并接入受信 supervisor（超时、进程树回收）。
+2. 兼容 GDB（C/C++）、js-debug（TS/JS）、java-debug（Java），每种语言单独验收。
+3. 接入 LSP 时先测 `monaco-languageclient` 体积与取消/版本行为。
+4. 真实窗口验收：中文 IME、DPI、快捷键焦点、WebView2 崩溃恢复。
+
+## 旧项目
+
+`E:\算法思考工具` 是上一代产品，只作为视觉、卡片和时间线的只读参考。它不是本仓库的代码基座；本仓库按新目标独立实现。旧项目不修改、不迁移。
+
+MIT，见 [LICENSE](LICENSE)；依赖与来源见 [docs/third-party-licenses.md](docs/third-party-licenses.md)。

@@ -1,0 +1,13 @@
+{
+  "id": "java",
+  "name": "Java",
+  "extensions": [".java"],
+  "adapter": "java-debug",
+  "status": "not-installed",
+  "launch": {
+    "request": "launch",
+    "mainClass": "${fileBasenameNoExtension}",
+    "projectName": "${workspaceFolder}"
+  },
+  "notes": "java-debug 与 JDT LS 为 EPL 依赖；工具 JDK 与项目 JDK 需分开记录。"
+}

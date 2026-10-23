@@ -1,7 +1,9 @@
 # tests backlog
 
-- [x] `test_execution_policy.py` 覆盖缺失/伪造 grant、工作区/适配器/版本/操作/config 不匹配、过期、超限及无强限制拒绝；另覆盖不可变操作集、start 仅成功后绑定一次、session 操作重复和审批/supervisor 必须返回 literal `True`。
-- [x] `test_dap_framing.py` 覆盖 UTF-8 字节分片、半包/粘包、受限 receive chunk、非法头/长度/JSON、非有限值/重复键/deep recursion、限额类型及编码失败。
-- [x] `test_bridge_contract.py` 覆盖 schema、未知/禁止方法、响应 ID 匹配/重复 pending ID，以及拒绝 notification。
-- [x] 验证命令：Python 3.11 `python -m unittest discover -s studio_host\\tests -v`，34 项通过；没有启动适配器或用户脚本。
-- [x] 增加较低请求预算回归，确认授权结果携带实际请求预算；添加测试包初始化以支持 root discovery。
+- [x] 既有策略/DAP 帧/桥 envelope 测试保留并通过。
+- [x] `test_workspace.py`：列表、读写、原子覆盖、路径穿越/盘符、大小上限、boards 坏 JSON。
+- [x] `test_language_packages.py`：四语言 manifest 与空目录拒绝。
+- [x] `test_debug_service.py`：脚本 DAP 启动/步过/停止；`stopEpoch` 1→3；变量/console；不执行用户代码。
+- [x] `test_bridge_server.py`：错误 token 关闭；认证后 `app.info`；`debug.start/step` 事件流。
+- [x] 验证命令：`python -m unittest discover -s desktop/studio_host/tests -t desktop -v`，46 项通过。
+- [ ] 真实 adapter 的 DAP 日志、断点位置、超时/断线、进程清理；pywebview 真窗口。

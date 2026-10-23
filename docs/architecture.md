@@ -1,77 +1,87 @@
-# 审查结论与架构决策
+# 架构与决策
 
-日期：2026-10-23。结论：**有条件通过方向，重写技术承诺与实施顺序。** 新建独立仓库合适；保留 pywebview 作为待验证的壳候选，并不等于继续旧应用的全局状态和 DOM 结构。
+更新：2026-10-23。本文件描述当前可运行底座，不是完整 IDE 的完成声明。
 
-## 需要纠正的五个判断
-
-1. **源码检索不等于引擎复用。** RAG/REG 帮助找代码和依赖；不能消除 VSCode 的服务注入、树控件、命令、文件服务、扩展宿主与状态管理耦合。本次未收到既有 RAG 项目地址，直接通过 GitHub MCP 读取固定提交源码，建立可追溯索引，不另建向量数据库。
-2. **Monaco 是正确编辑器入口。** 它与 VSCode 编辑器同源；字体、主题、装饰可配置，但 workbench、插件、终端、语言服务不是一个 Monaco 控件自带的功能。不承诺像素级复刻完整 VSCode。
-3. **调试数据没有统一的完整内存图。** DAP 主要给展示字符串、子变量句柄和可选内存引用；变量子树、语言堆对象、操作系统内存、GPU storage 是不同层。
-4. **画布有自己的难题。** 对象身份、部分采集、循环引用、别名、布局稳定性、百万元素裁剪和时间线数据量都必须显式设计。
-5. **四种语言不等于一个适配器。** 首版四语言是分阶段验收目标，先打通 Python，再逐一验证其余。语言包外置按需安装。
-
-依据：[VSCode 固定源码索引](source-index.json)、[DAP 官方概览](https://microsoft.github.io/debug-adapter-protocol/overview)、[Monaco 官方 FAQ](https://github.com/microsoft/monaco-editor#faq)。
-
-## 分层与依赖方向
+## 总览
 
 ```mermaid
 flowchart LR
-  UI[Monaco / 调试面板 / 手绘工具] --> Commands[应用命令与授权确认]
-  Commands --> Broker[Python 本地 Host]
-  Broker --> Adapter[每语言 DAP Adapter]
-  Adapter --> Target[受监管目标进程]
-  Adapter --> Model[DebugModel: 运行事实]
-  Model --> View[DebugViewModel: 焦点与可见状态]
-  View --> Presenter[Presenter: 面板与命令 DTO]
-  View --> Projector[Canvas Projector: 选择性结构]
-  Presenter --> Panels[Variables / Stack / Console / Toolbar]
-  Presenter --> Editor[Monaco 装饰]
-  Projector --> Scene[共享 Scene 渲染接口]
-  Manual[ManualBoard: 手绘事实] --> Scene
-  Layout[布局 / 注释 / 历史游标] --> Scene
+  UI[React + Monaco + 画布/面板/时间线] --> HOST[本地 Host 客户端]
+  HOST -->|WS JSON-RPC| BRIDGE[Python Bridge]
+  BRIDGE --> SERVICE[HostService]
+  SERVICE --> WS[WorkspaceStore]
+  SERVICE --> DEBUG[DemoDebugService]
+  DEBUG --> DAP[DapSession]
+  DAP --> ADAPTER[ScriptedDapAdapter]
+  CORE[frontend/core 纯逻辑] --> UI
+  SCENE[Scene / Card DTO] --> UI
+  PROJECTOR[Canvas Projector] --> SCENE
+  CORE --> PROJECTOR
 ```
 
-图中 adapter 到 Model 的数据实际经 broker 桥路由，前端不能直接控制目标进程。命令下行与事件上行分开。
+当前 `ScriptedDapAdapter` 是内存中的确定性适配器，不启动进程、不执行用户代码。真实 `debugpy` / GDB / js-debug / java-debug 走同一个 `DapSession`，由受信 supervisor 启动和回收。
 
-| 层 | 负责 | 禁止 |
+## 分层与所有权
+
+| 层 | 位置 | 负责 | 禁止 |
+|---|---|---|---|
+| React 壳 | `frontend/src/app`、`panels` | 布局、面板、工具栏、时间线、交互 | 自行持有第二套运行事实 |
+| 编辑器 | `frontend/src/editor` | Monaco、语言、主题、断点 gutter、当前行 | 把编辑器内容当运行结果 |
+| 画布 | `frontend/src/canvas` | Scene/Card 渲染、缩放/平移、选择、拖动、差异高亮 | 根据展示字符串猜地址/别名 |
+| 纯核心 | `frontend/core` | 调试状态机、请求代际、投影、Trace/Manual 文档、卡片/差异 | DOM、网络、文件、进程 |
+| Host 客户端 | `frontend/src/host` | Demo 与 WS 两种实现、RPC/事件 | 把 token 放进 URL 或日志 |
+| 全局状态 | `frontend/src/state` | 选择、模式、快照索引、手绘文档、UI 状态 | 复制运行事实 |
+| 桌面壳 | `desktop/app.py` | pywebview、静态服务器、bridge_info、生命周期 | 在 renderer 中启动进程 |
+| 本地桥 | `desktop/studio_host/bridge_server.py` | loopback WS、token、Origin、JSON-RPC allowlist | 暴露 grant/任意路径/任意 DAP |
+| 工作区 | `desktop/studio_host/workspace.py` | 路径约束、原子写、boards | 目录穿越、部分覆盖坏文件 |
+| 调试服务 | `desktop/studio_host/debug_service.py` | DAP → 归一化事件、采集预算、coverage | 把展示字符串当内存 |
+| DAP 会话 | `desktop/studio_host/dap_session.py` | request_seq、事件、超时、反向请求默认拒绝 | 把 DAP 当 JSON-RPC |
+| 语言包 | `languages/*/manifest.json` | 扩展名、adapter、launch 模板、状态 | 把运行时打进 exe |
+| 执行策略 | `desktop/studio_host/execution_policy.py` | 默认拒绝、作用域 grant、预算 | 无 supervisor 时放行 |
+
+## 关键 ADR
+
+| 编号 | 决策 | 理由 / 当前边界 |
 |---|---|---|
-| Host / Supervisor | 文件权限、安装清单、进程树、资源限制、授权、IPC与适配器生命周期 | 信任 renderer 自称已授权；把 shell 字符串直接执行 |
-| Adapter transport | DAP Content-Length framing、request_seq 匹配、超时/取消/反向请求 | 将 DAP 当 JSON-RPC；混 stdout 日志 |
-| DebugModel | session/thread 状态、能力、断点映射、当前暂停代数据 | DOM、颜色、布局、原生文件/窗口 |
-| DebugViewModel | 焦点、展开、选中、分页、请求代、历史游标 | 另存第二套运行事实；把回看当真实回退 |
-| Presenter | 给面板/Monaco 的可显示 DTO、命令启用条件 | 自动 evaluate；自行读取 adapter |
-| Canvas Projector | 预算内把有价值数据转为 Scene | 根据变量字符串猜地址、别名或对象死亡 |
-| Renderer | 卡片、线、标注、变更动画、交互 hit testing | 修改 trace 事实；发任意 DAP 命令 |
-| Workspace Store | 有版本的文档、原子落盘、导入迁移、运行记录清理 | 将临时句柄作为持久对象身份 |
+| ADR-001 | 新仓库独立实现；旧 `E:\算法思考工具` 只读参考 | 新产品是编辑器 + 图形调试器，不是旧画布续作；旧项目不迁移、不修改 |
+| ADR-002 | React 19 + Vite + Monaco | 多面板状态适合 React；Monaco 与 VSCode 编辑器同源；不复制 workbench |
+| ADR-003 | pywebview + WebView2 | 轻量桌面壳；静态服务器 + 本地桥；窗口/IME/DPI 仍需真实验收 |
+| ADR-004 | loopback WebSocket JSON-RPC | 命令与事件分离；token 认证、Origin 限制、方法 allowlist；不用 URL 传 token |
+| ADR-005 | DAP 作为语言无关调试协议 | 统一请求/事件/能力；脚本化适配器先打通 UI；真实适配器逐个验收 |
+| ADR-006 | 手绘与调试共用 Scene/Card 渲染器，独立文档 | 视觉一致；事实源分离；手绘内容不被快照覆盖 |
+| ADR-007 | 暂停快照 + 时间线，不假装记录每次赋值 | DAP 主要在停点给数据；连续变化需要额外采集；缺失标 gap |
+| ADR-008 | 运行默认拒绝，真实 supervisor 前不执行用户代码 | 防止无限制进程；脚本演示明确标记，不冒充真实调试 |
+| ADR-009 | 语言包声明式 manifest | 语言运行时按需安装；首版四语言但逐个验收 |
+| ADR-010 | Trace 剥离临时句柄；布局键与对象身份分离 | 旧句柄不能跨停点；布局稳定不等于对象相同 |
 
-## 技术选择与状态
+## 一次单步的数据流
 
-| 决策 | 选择 | 原因 / 当前门槛 |
-|---|---|---|
-| ADR-001 隔离 | 新仓库 E:\Thinking-Canvas-Studio，branch codex/studio-foundation | 用户明确选择；旧源码/数据零编辑 |
-| ADR-002 核心语言 | TypeScript 纯核心；Python host | 类型化跨面板契约；现有 Python 能力与本地工具链可用 |
-| ADR-003 UI 组织 | 先保持可独立测试核心；产品 UI 候选 React + Vite + Monaco | React 适合多面板状态，DOM/SVG 适合可编辑卡片；未通过 spike 不安装完整 UI 栈 |
-| ADR-004 桌面壳 | pywebview + WebView2 候选 | 保留轻壳经验；必须验证 Monaco worker、IME、快捷键、启动与崩溃恢复 |
-| ADR-005 LSP | monaco-languageclient classic 优先实验 | 仍带 @codingame VSCode API compatibility services；不等同零 VSCode 依赖，实测体积 |
-| ADR-006 调试 | DAP，按 capabilities 展示 | 统一交互；语言特性与 launch schema 由语言包声明 |
-| ADR-007 桥 | renderer↔host 本地 WS JSON-RPC 2.0；host↔adapter 原生 DAP | 两套协议各司其职；本轮仅 codec/validator/端口，未监听 socket |
-| ADR-008 画布 | 手绘和调试共用 Scene DTO 与渲染器，独立事实源 | 避免调试刷新覆盖手绘数据；共享的是呈现机制 |
-| ADR-009 时间线 | 有界暂停快照、可选采集节流、布局独立 | 不承诺继续运行期间的每次赋值；历史可回看但不自动逆向执行 |
-| ADR-010 运行边界 | 默认拒绝，可信 host 签发内存 grant，真实 supervisor 后才能启动 | 条件断点/Watch/REPL/属性格式化可能触发目标代码；纳入权限与超时 |
-| ADR-011 分发 | 应用壳+UI；解释器/JDK/GDB/语言服务按需管理 | 不把所有 runtime 塞进 exe；安装下载显式操作，调试可离线 |
+1. React 点击“步过”→ `HostClient.stepDebug` → WS `debug.step`。
+2. `HostService` → `DemoDebugService.step` → `DapSession.request("next")`。
+3. 适配器返回 response，并发出 `continued`、`stopped` 事件。
+4. `DebugService` 归一化为 `threadResumed` / `threadStopped` / `framesLoaded`，通过 WS 通知推送。
+5. `StudioStore` 用 `reduceDebugEvent` 做 run/session/stopEpoch 校验；旧回包被拒。
+6. `createTraceSnapshot` 剥离句柄并冻结；`projectSnapshot` 生成 Scene/Card；`diffScenes` 标出变化。
+7. Canvas 渲染卡片/边；Timeline 追加停点；Inspector 显示变量和调用栈。
 
-若 WebView2 spike 失败，才比较 Electron 或 Tauri；不得没有数据就重写桌面壳。若 classic LSP 开销不可接受，记录体积与功能差异，再讨论替代桥，不静默改需求。
+## 真实 vs 演示
 
-## MVP 边界
+| 能力 | 当前状态 |
+|---|---|
+| Monaco 编辑、语法高亮、断点 gutter、当前行 | 已实现；浏览器实测 |
+| 脚本化 DAP：停点、步过、变量、调用栈 | 已实现；Python 宿主测试 + 浏览器实测 |
+| WebSocket 桥：token、Origin、allowlist、广播事件 | 已实现并测试 |
+| 工作区读写、boards 原子保存 | 已实现并测试 |
+| 手绘卡片/拖动/记录步骤 | 基础实现；完整笔迹/连线/文本编辑待补 |
+| 真实 debugpy / GDB / JS / Java | 未接入 |
+| LSP/补全/诊断 | 未接入 |
+| 强制超时/CPU/内存/子进程监管 | 未实现；执行策略默认拒绝 |
+| pywebview 真窗口 IME/DPI/崩溃恢复 | 隐藏窗口基础加载通过；IME/DPI/崩溃恢复未验收 |
 
-源码断点、基本单步、Variables/Watch/Call Stack、Console 输出、Toolbar、执行行/异常提示、选择性画布、手绘和有界快照。Watch/REPL 明确受运行授权限制。先单会话、全停，接口留 session/thread 身份；部分线程暂停暂不可安全查看时明确显示“不支持部分线程采集”。
+## 已知风险
 
-Memory 是 capability-gated 的读取视图，VSCode debugMemory.ts 主要是虚拟文件系统适配层，不能把它当现成完整内存编辑器复制。Disassembly 和 Inline Values 在后续，逆向执行仅在 adapter 支持时另验收。
-
-## 失败与撤销边界
-
-- 配置改变撤销 grant；目标/adapter 异常退出清理挂起请求；session 与 run 重新分配身份。
-- continue/step 后所有暂停句柄失效；选帧变化仅换 view 请求代，不修改已经捕获的历史事实。
-- 对象缺失若采集不完整只能标“未知”；不是自动删除。
-- 运行过程丢采样必须记 gap，不用插值动画伪造中间状态。
-- 请求、变量、字节、节点、日志、快照均有预算；预算命中是可解释的 partial result。
+- Monaco 主包约 3.0 MB（gzip 约 0.8 MB），语言 worker 另计；LSP 接入前必须测体积。
+- `ScriptedDapAdapter` 的变量树是演示数据；不能据此声称真实语言支持。
+- 连续运行的完整动画尚未解决；当前只保证停点快照。
+- 手绘编辑器功能范围明显小于旧版；旧版的笔迹/橡皮/连线清理尚未移植。
+- 桌面桥 token 由 pywebview `bridge_info` 提供；窗口 API 注入慢时需要等待，不能把“窗口出现”当“桥可用”。

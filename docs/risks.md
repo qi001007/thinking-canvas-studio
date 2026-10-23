@@ -1,18 +1,21 @@
-# 风险与验证门槛
+# 风险与边界
 
-| 风险 | 影响 | 缓解与实际门槛 |
+更新：2026-10-23。
+
+| 风险 | 影响 | 当前处理 / 门槛 |
 |---|---|---|
-| 把变量树当完整堆 | 画出不存在的别名、删除、内存大小 | 显式provenance、coverage、collector identity；无证据不画 |
-| 连续运行没有逐步事件 | “动画完整还原”承诺失真 | 只播已采集暂停快照；自动步进另设计节奏/开销，丢样标gap |
-| 张量隐藏storage/stride/device | 数值显示与实际内存布局混淆 | CPU tensor专用collector先验；GPU不在MVP，禁止自动搬整张量到CPU |
-| DAP句柄复用/晚回包 | 旧状态覆盖新帧 | session/run/thread/stop epoch/request generation校验与回归测试 |
-| 多线程部分暂停 | 同一画布读到互相矛盾的共享堆 | 当前全停门槛，后续引入线程/采集一致性模型 |
-| 容器/对象递归规模 | UI或adapter失去响应 | 采集分页、总字节/项数/深度预算、节点裁剪；静默截断不算通过 |
-| WebView2/Monaco焦点/worker | 白屏、快捷键误触、中文输入错 | S1真实窗口/IME/DPI验收，不能只浏览器HTTP测通 |
-| monaco-languageclient兼容层 | 轻量目标被依赖膨胀破坏 | classic与Monaco-only实测bundle/启动，并清点license |
-| Python属性/Watch副作用 | 查看也执行目标逻辑 | 执行授权覆盖允许求值范围；未知属性formatter不自动递归调用 |
-| loopback被恶意网页访问 | 本地文件/运行权限滥用 | 随机token、Origin/Host校验、严格方法参数allowlist、禁止远程绑定 |
-| 资源限制不完整 | 无限循环、内存耗尽、子进程残留 | 实现真实OS监管前fail closed；按实际平台测试整个进程树 |
-| 存储膨胀/泄露 | 跟踪大量值与敏感输出 | 默认有界、本地、主动导出；code/trace/ui state分开，禁止自动Git提交 |
-| 许可/安装链漂移 | 无法合法或可重复分发 | 锁版本、hash、SBOM、语言包许可单列 |
-| 跨平台过早扩展 | 重复维护路径映射和资源监管 | Windows先验；WSL作为另一运行环境单独验收 |
+| 脚本演示被误认为真实调试 | 用户相信了不存在的语言支持 | 会话标记“脚本演示”；README/进度明确；真实适配器未接 |
+| 编辑时无法知道运行时内存 | 产品承诺失真 | 只承诺启动/停点后的采集；编辑时只显示静态信息/已有 trace |
+| DAP 变量树不是完整内存图 | 画出不存在别名/内存 | 只用结构节点；别名需 collector 证据；未知/部分采集可见 |
+| 连续运行没有逐步事件 | 动画承诺失真 | 只保存暂停快照；缺样标 gap；连续步进另做 |
+| DAP 临时句柄复用/晚回包 | 旧状态覆盖新帧 | run/session/stopEpoch 校验；`DebugModel` 拒绝旧帧；测试覆盖 |
+| 无 supervisor 执行用户代码 | 无限循环/内存/子进程残留 | `ExecutionPolicy` 默认拒绝；真实 adapter 前必须补 OS 级监管 |
+| WS 桥被本机网页滥用 | 文件读写/调试控制 | loopback、token、Origin、allowlist、2 MiB 上限；仍不是恶意代码沙箱 |
+| pywebview 窗口/IME/DPI | 白屏、输入错、快捷键冲突 | 代码已写；必须真窗口验收，不能只浏览器 |
+| Monaco 包体 | 启动/内存压力 | 主包约 3.0 MB gzip 0.8 MB；LSP 接入前测体积 |
+| `ScriptedDapAdapter` 能力有限 | 真实容器语义不足 | 只用于演示；真实 debugpy 接入时替换采集 |
+| 手绘能力缩水 | 用户失去旧版体验 | 当前仅基础卡片/步骤；笔迹/连线/文本编辑待补 |
+| 工作区坏文件/原子写失败 | 数据丢失 | 临时文件 + fsync + replace；坏 JSON 拒绝；需要增加恢复测试 |
+| EPL/GPL 依赖 | 分发合规 | GDB/Java 外置、不并入 MIT；发布前 SBOM/许可专项 |
+| 四语言同时推进 | 长期停在 spike | Python 垂直闭环优先；其他语言逐个验收 |
+| 真窗口 API 注入慢 | “窗口出现”但桥不可用 | 前端等待 `bridge_info`；不能以窗口出现当桥就绪 |
