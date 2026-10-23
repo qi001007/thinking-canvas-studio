@@ -55,6 +55,9 @@ flowchart LR
 | ADR-010 | Trace 剥离临时句柄；布局键与对象身份分离 | 旧句柄不能跨停点；布局稳定不等于对象相同 |
 | ADR-011 | 真实运行：原生确认 → 单次 receipt → GrantAuthority → Job Object | JS 布尔值不能当授权；文件内容 hash 进 config digest；没有 OS 限额不放行 |
 | ADR-012 | debugpy 用 attach 模式（`--wait-for-client` + 目标脚本） | debugpy 1.6.7 CLI 需要目标；DapSession 发 attach；`justMyCode: true` 过滤内部帧 |
+| ADR-013 | 函数工作台 = 干净文件 + 隐藏 context 模块 + `from context import *` | 编辑页不暴露 bootstrap；运行时继承源文件 import/顶层定义；源文件不被修改 |
+| ADR-014 | 静态结构用 Python AST 启发式图；结构/运行双视图 | 保存后不运行也能看到新变量/关系；静态不推断对象身份；连接关系用 creates/calls/flows/returns 等显式边 |
+| ADR-015 | 时间线用有界帧轴 | 大量步骤不排长 chip；最多保留 500 帧并显示丢弃数 |
 
 ## 一次单步的数据流
 
@@ -75,6 +78,8 @@ flowchart LR
 | WebSocket 桥：token、Origin、allowlist、广播事件 | 已实现并测试 |
 | 工作区读写、boards 原子保存 | 已实现并测试 |
 | 手绘卡片/拖动/记录步骤 | 基础实现；完整笔迹/连线/文本编辑待补 |
+| 函数工作台 + AST 静态结构图 | Python 已实现；保存后 2→12 节点/20 边实测 |
+| 帧轴时间线 | 已实现；500 帧上限 |
 | 真实 debugpy（Python） | 已接入并测试：断点、单步、locals、list、Job Object 回收 |
 | GDB / JS / Java | 未接入 |
 | LSP/补全/诊断 | 未接入 |

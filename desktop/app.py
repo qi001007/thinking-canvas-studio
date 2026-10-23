@@ -120,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         allowed_origins = [static_server.origin]
 
     relay = EventRelay()
-    service = HostService(workspace, REPO_ROOT / "languages", relay.event, relay.console)
+    service = HostService(workspace, REPO_ROOT / "languages", relay.event, relay.console, seed_demo=args.workspace is None)
     bridge = BridgeServer(service, allowed_origins=allowed_origins)
     relay.bridge = bridge
     bridge.start()
@@ -171,7 +171,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run_smoke(workspace: Path) -> int:
     relay = EventRelay()
-    service = HostService(workspace, REPO_ROOT / "languages", relay.event, relay.console)
+    service = HostService(workspace, REPO_ROOT / "languages", relay.event, relay.console, seed_demo=True)
     bridge = BridgeServer(service)
     relay.bridge = bridge
     bridge.start()

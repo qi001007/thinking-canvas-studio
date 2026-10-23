@@ -33,18 +33,24 @@ export function Timeline({ state, onSelectSnapshot, onSelectManualStep, onBackTo
 			const projection = projectSnapshot(snapshot).scene;
 			const changes = diffScenes(previous, projection).changedNodeIds.size;
 			previous = projection;
-			return { id: snapshot.id, label: snapshot.label ?? `停点 ${snapshot.sequence ?? index + 1}`, changes };
+			return { id: snapshot.id, label: snapshot.label ?? `帧 ${snapshot.sequence ?? index + 1}`, changes };
 		});
 	}, [state.mode, state.manualBoard.steps, state.snapshots]);
 
 	const activeIndex = state.mode === 'manual' ? state.manualStepIndex : state.snapshotIndex;
-	const isLive = activeIndex < 0;
-	const canGoBack = activeIndex > 0 || (isLive && entries.length > 1);
-	const canGoForward = activeIndex >= 0 && activeIndex < entries.length - 1;
+	const live = activeIndex < 0;
+	const maxIndex = Math.max(0, entries.length - 1);
+	const currentIndex = live ? maxIndex : Math.min(activeIndex, maxIndex);
+	const currentLabel = entries.length > 0 ? entries[currentIndex]?.label ?? '—' : '等待停点';
+	const dropped = state.mode === 'debug' ? state.droppedSnapshots : 0;
 
 	const select = (index: number) => {
 		if (state.mode === 'manual') onSelectManualStep(index);
 		else onSelectSnapshot(index);
+	};
+	const step = (delta: number) => {
+		if (entries.length === 0) return;
+		select(Math.max(0, Math.min(maxIndex, currentIndex + delta)));
 	};
 
 	return (
@@ -54,41 +60,37 @@ export function Timeline({ state, onSelectSnapshot, onSelectManualStep, onBackTo
 				{state.mode === 'manual' ? (
 					<button type="button" className="btn btn-primary btn-small" onClick={onRecordStep}>记录一步</button>
 				) : (
-					<span className={`timeline-live ${isLive ? 'is-live' : ''}`}>{isLive ? '跟随当前停点' : '正在回看'}</span>
+					<span className={`timeline-live ${live ? 'is-live' : ''}`}>
+						{entries.length} 帧{dropped > 0 ? ` · 保留最近 ${entries.length} / 丢弃 ${dropped}` : ''}
+					</span>
 				)}
 			</div>
 			<div className="timeline-track">
-				<button type="button" className="timeline-arrow" disabled={!canGoBack} onClick={() => select(activeIndex <= 0 ? 0 : activeIndex - 1)} aria-label="上一步">‹</button>
-				<div className="timeline-chips">
-					{entries.length === 0 && <span className="timeline-empty">{state.mode === 'manual' ? '还没有记录步骤' : '运行演示会话后出现停点'}</span>}
-					{entries.map((entry, index) => (
-						<button
-							type="button"
-							key={entry.id}
-							className={`timeline-chip ${activeIndex === index ? 'is-active' : ''}`}
-							onClick={() => select(index)}
-							title={entry.label}
-						>
-							<span className="timeline-index">{index + 1}</span>
-							<span className="timeline-label">{entry.label}</span>
-							{entry.changes > 0 && <span className="timeline-change">{entry.changes}</span>}
-						</button>
-					))}
-					{state.mode === 'debug' && entries.length > 0 && (
-						<button type="button" className={`timeline-chip timeline-current ${isLive ? 'is-active' : ''}`} onClick={onBackToLive}>
-							<span className="timeline-index">●</span>
-							<span className="timeline-label">当前</span>
-						</button>
-					)}
+				<button type="button" className="timeline-arrow" disabled={entries.length === 0 || currentIndex === 0} onClick={() => step(-1)} aria-label="上一帧">‹</button>
+				<div className="timeline-scrubber">
+					<input
+						type="range"
+						min={0}
+						max={maxIndex}
+						value={entries.length === 0 ? 0 : currentIndex}
+						onChange={event => select(Number(event.target.value))}
+						disabled={entries.length === 0}
+						aria-label="时间线帧"
+					/>
+					<div className="timeline-scale">
+						<span>0</span>
+						<span>{entries.length === 0 ? '—' : `${currentIndex + 1} / ${entries.length}`}</span>
+						<span>{entries.length === 0 ? '—' : entries.length - 1}</span>
+					</div>
 				</div>
-				<button type="button" className="timeline-arrow" disabled={!canGoForward} onClick={() => select(Math.min(entries.length - 1, activeIndex + 1))} aria-label="下一步">›</button>
+				<button type="button" className="timeline-arrow" disabled={entries.length === 0 || currentIndex >= maxIndex} onClick={() => step(1)} aria-label="下一帧">›</button>
 			</div>
-			{!isLive && (
-				<div className="timeline-readonly">
-					<span>只读回看</span>
+			<div className="timeline-current">
+				<span className={live ? 'is-live' : ''}>{live ? '当前 · ' : '回看 · '}{currentLabel}</span>
+				{!live && (
 					<button type="button" className="btn btn-small" onClick={onBackToLive}>回到当前</button>
-				</div>
-			)}
+				)}
+			</div>
 		</footer>
 	);
 }

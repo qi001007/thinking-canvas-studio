@@ -26,6 +26,7 @@ export function projectSnapshot(snapshot: NormalizedDebugSnapshot | TraceSnapsho
 		edges.push({ id: JSON.stringify(['edge', edgeSequence++]), ...edge });
 	};
 
+	const frameNodeIds: string[] = [];
 	const frames = normalizedUnavailable ? [] : 'session' in snapshot
 		? snapshot.session.threads.filter(thread => thread.state === 'stopped').flatMap(thread => thread.frames)
 		: snapshot.frames;
@@ -47,8 +48,10 @@ export function projectSnapshot(snapshot: NormalizedDebugSnapshot | TraceSnapsho
 			valueId: frame.id,
 			label: frame.name,
 			kind: 'stack-frame',
+			origin: 'runtime',
 			card: { kind: 'stack-frame', name: frame.name, source: frame.source, line: frame.line }
 		});
+		frameNodeIds.push(frameKey);
 		kindsByNodeId.set(frameKey, 'stack-frame');
 
 		const scopeOccurrences = new Map<string, number>();
@@ -70,6 +73,14 @@ export function projectSnapshot(snapshot: NormalizedDebugSnapshot | TraceSnapsho
 		if (truncated) break;
 	}
 
+	for (let index = 0; index < frameNodeIds.length - 1; index++) {
+		addEdge({
+			from: frameNodeIds[index + 1]!,
+			to: frameNodeIds[index]!,
+			kind: 'calls',
+			label: frames[index]?.name ?? 'call'
+		});
+	}
 	if (truncated && missing.length === 0) missing.push('Canvas projection was truncated.');
 	const state = normalizedUnavailable ? 'unknown' : truncated || hasUnsupportedPartial ? 'partial' : snapshot.coverage.state;
 	return {
@@ -120,6 +131,7 @@ function visitValue(
 			kind,
 			type: value.type,
 			metadata: value.tensorMetadata,
+			origin: 'runtime',
 			card: cardFromValue(value)
 		});
 		kindsByNodeId.set(key, kind);

@@ -1,6 +1,6 @@
 import type { DebugEvent } from '@core/application/debug-model';
 import type { ManualBoard } from '@core/canvas/documents';
-import type { CapabilitySet, RuntimeHandle, ScopeSnapshot, StackFrameSnapshot, ValueSnapshot } from '@core/domain/contracts';
+import type { CapabilitySet, Coverage, RuntimeHandle, SceneDto, ScopeSnapshot, StackFrameSnapshot, ValueSnapshot } from '@core/domain/contracts';
 
 export interface AppInfo {
 	readonly name: string;
@@ -45,6 +45,26 @@ export interface RealRunRequest {
 	readonly breakpoints: readonly number[];
 }
 
+export interface WorkbenchInfo {
+	readonly path: string;
+	readonly sourceFile: string;
+	readonly language: string;
+	readonly content: string;
+}
+
+export interface StaticAnalysis {
+	readonly scene: SceneDto;
+	readonly coverage: Coverage;
+	readonly error?: string;
+	readonly sourceFile?: string;
+	readonly stats?: {
+		readonly nodes: number;
+		readonly edges: number;
+		readonly functions: number;
+		readonly classes: number;
+	};
+}
+
 export interface VariablePage {
 	readonly start?: number;
 	readonly count?: number;
@@ -61,6 +81,10 @@ export interface HostClient {
 	info(): Promise<AppInfo>;
 	listLanguages(): Promise<readonly LanguagePackage[]>;
 	listFiles(): Promise<readonly FileEntry[]>;
+	createWorkbench(sourceFile: string): Promise<WorkbenchInfo>;
+	readWorkbench(path: string): Promise<WorkbenchInfo>;
+	writeWorkbench(path: string, content: string): Promise<void>;
+	analyzeFile(path: string): Promise<StaticAnalysis>;
 	readFile(path: string): Promise<string>;
 	writeFile(path: string, content: string): Promise<void>;
 	loadManualBoard(): Promise<ManualBoard>;

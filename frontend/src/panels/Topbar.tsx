@@ -17,6 +17,9 @@ export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep
 	const hasSession = !!state.session && state.debug.sessionState !== 'ended';
 	const dirty = state.editorText !== state.savedText;
 	const modeLabel = state.mode === 'manual' ? '手绘' : '调试';
+	const activeLabel = state.activeFile.replace(/\\/g, '/').startsWith('.thinking-canvas/workbench/')
+		? `函数工作台 · ${state.workbench?.sourceFile ?? '源文件'}`
+		: state.activeFile;
 	return (
 		<header className="topbar">
 			<div className="brand-block">
@@ -33,7 +36,7 @@ export function Topbar({ state, onMode, onStart, onStartReal, onContinue, onStep
 				</div>
 				<div className="file-chip">
 					<span className="file-chip-dot" />
-					<span>{state.activeFile || '未打开文件'}</span>
+					<span>{activeLabel || '未打开文件'}</span>
 					{state.mode === 'manual' && <em>手绘 · {state.manualBoard.steps.length} 步</em>}
 					{state.mode === 'debug' && <em>{modeLabel} · {state.snapshots.length} 个停点</em>}
 				</div>

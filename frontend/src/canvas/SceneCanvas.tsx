@@ -43,7 +43,14 @@ const CARD_WIDTH: Record<CardData['kind'], number> = {
 	tensor: 260,
 	'stack-frame': 210,
 	sticky: 260,
-	function: 300
+	function: 300,
+	class: 300,
+	parameter: 210,
+	module: 260,
+	import: 240,
+	call: 280,
+	external: 230,
+	loop: 260
 };
 
 const CARD_HEIGHT: Record<CardData['kind'], number> = {
@@ -60,7 +67,14 @@ const CARD_HEIGHT: Record<CardData['kind'], number> = {
 	tensor: 140,
 	'stack-frame': 84,
 	sticky: 130,
-	function: 160
+	function: 160,
+	class: 180,
+	parameter: 92,
+	module: 100,
+	import: 110,
+	call: 140,
+	external: 92,
+	loop: 100
 };
 
 export function SceneCanvas({
@@ -99,7 +113,9 @@ export function SceneCanvas({
 			maxX = Math.max(maxX, position.x + size.width);
 			maxY = Math.max(maxY, position.y + size.height);
 		}
-		const zoom = Math.max(0.4, Math.min(1, (width - 48) / Math.max(1, maxX), (height - 48) / Math.max(1, maxY)));
+		const isStatic = scene.nodes.some(node => node.origin === 'static');
+		const minZoom = isStatic ? 0.68 : 0.4;
+		const zoom = Math.max(minZoom, Math.min(1, (width - 48) / Math.max(1, maxX), (height - 48) / Math.max(1, maxY)));
 		setViewport({ x: 24, y: 20, zoom });
 	}, [sceneKey, mode]);
 
@@ -180,12 +196,18 @@ export function SceneCanvas({
 						const middle = (start.x + end.x) / 2;
 						const path = `M ${start.x} ${start.y} C ${middle} ${start.y}, ${middle} ${end.y}, ${end.x} ${end.y}`;
 						return (
-							<path
-								key={edge.id}
-								d={path}
-								className={`scene-edge scene-edge-${edge.kind}`}
-								markerEnd={edge.kind === 'contains' ? undefined : edge.kind === 'alias' ? 'url(#arrow-alias)' : 'url(#arrow-accent)'}
-							/>
+							<g key={edge.id}>
+								<path
+									d={path}
+									className={`scene-edge scene-edge-${edge.kind}`}
+									markerEnd={edge.kind === 'contains' || edge.kind === 'defines' ? undefined : edge.kind === 'alias' ? 'url(#arrow-alias)' : 'url(#arrow-accent)'}
+								/>
+								{edge.label && ['calls', 'returns', 'inherits', 'imports', 'parameter', 'flows', 'uses', 'targets', 'method', 'field', 'iterates', 'produces'].includes(edge.kind) && (
+									<text className="scene-edge-label" x={(start.x + end.x) / 2} y={(start.y + end.y) / 2 - 4}>
+										{edge.label}
+									</text>
+								)}
+							</g>
 						);
 					})}
 				</svg>
@@ -200,7 +222,9 @@ export function SceneCanvas({
 								'canvas-card',
 								`canvas-card-${node.card?.kind ?? 'variable'}`,
 								selectedNodeId === node.id ? 'is-selected' : '',
-								diff.changedNodeIds.has(node.id) ? 'is-changed' : ''
+								diff.changedNodeIds.has(node.id) ? 'is-changed' : '',
+								node.origin === 'static' ? 'is-static' : '',
+								node.origin === 'runtime' ? 'is-runtime' : ''
 							].filter(Boolean).join(' ')}
 							style={{ left: position.x, top: position.y, width: size.width, minHeight: size.height }}
 							onPointerDown={event => startDrag(event, node)}
@@ -322,15 +346,49 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 			);
 		case 'stack-frame':
 			return <div className="canvas-frame-loc">{card.source ?? 'source'} : {card.line ?? '—'}</div>;
+		case 'module':
+			return <div className="canvas-module"><span>{card.path}</span>{card.source && <small>继承 · {card.source}</small>}</div>;
+		case 'class':
+			return (
+				<div className="canvas-class">
+					<div className="canvas-signature">{card.name}{card.bases.length > 0 ? `(${card.bases.join(', ')})` : ''}</div>
+					{card.fields && card.fields.length > 0 && <div className="canvas-function-meta"><span>字段</span>{card.fields.join(', ')}</div>}
+					{card.methods && card.methods.length > 0 && <div className="canvas-function-meta"><span>方法</span>{card.methods.join(', ')}</div>}
+					{card.line && <div className="canvas-complexity">line {card.line}</div>}
+				</div>
+			);
+		case 'parameter':
+			return (
+				<div className="canvas-parameter">
+					<span>{card.name}</span>
+					{card.type && <em>{card.type}</em>}
+					{card.defaultValue && <small>= {card.defaultValue}</small>}
+				</div>
+			);
+		case 'import':
+			return <div className="canvas-import"><span>{card.module}</span>{card.names && card.names.length > 0 && <small>{card.names.join(', ')}</small>}</div>;
+		case 'call':
+			return (
+				<div className="canvas-call">
+					<div className="canvas-signature">{card.target}</div>
+					{card.args && card.args.length > 0 && <div className="canvas-call-args">{card.args.join(', ')}</div>}
+					{card.line && <div className="canvas-complexity">line {card.line}</div>}
+				</div>
+			);
+		case 'external':
+			return <div className="canvas-external"><span>{card.target}</span>{card.category && <small>{card.category}</small>}</div>;
+		case 'loop':
+			return <div className="canvas-loop"><span>{card.header}</span>{card.line && <small>line {card.line}</small>}</div>;
 		case 'sticky':
 			return <div className={`canvas-sticky ${card.tone === 'invariant' ? 'is-invariant' : ''}`}>{card.text}</div>;
 		case 'function':
 			return (
 				<div className="canvas-function">
 					<div className="canvas-signature">{card.signature}</div>
-					<div className="canvas-function-meta"><span>输入</span>{card.input ?? '—'}</div>
-					<div className="canvas-function-meta"><span>输出</span>{card.output ?? '—'}</div>
-					<div className="canvas-complexity">{card.complexity ?? ''}</div>
+					{card.params && card.params.length > 0 && <div className="canvas-function-meta"><span>参数</span>{card.params.join(', ')}</div>}
+					<div className="canvas-function-meta"><span>输出</span>{card.returns ?? card.output ?? '—'}</div>
+					{card.complexity && <div className="canvas-complexity">{card.complexity}</div>}
+					{card.line && <div className="canvas-complexity">line {card.line}</div>}
 				</div>
 			);
 		case 'variable':
@@ -342,6 +400,9 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 
 function layoutPositions(scene: SceneDto, layout: LayoutViewState): Record<string, Point> {
 	const positions: Record<string, Point> = {};
+	if (scene.nodes.some(node => node.origin === 'static')) {
+		return staticGraphPositions(scene, layout);
+	}
 	let frameIndex = 0;
 	let valueIndex = 0;
 	for (const node of scene.nodes) {
@@ -357,6 +418,55 @@ function layoutPositions(scene: SceneDto, layout: LayoutViewState): Record<strin
 		}
 		positions[node.id] = { x: 270, y: 32 + valueIndex * 190 };
 		valueIndex++;
+	}
+	return positions;
+}
+
+function staticGraphPositions(scene: SceneDto, layout: LayoutViewState): Record<string, Point> {
+	const positions: Record<string, Point> = {};
+	const nodeById = new Map(scene.nodes.map(node => [node.id, node]));
+	const outgoing = new Map<string, string[]>();
+	const indegree = new Map<string, number>(scene.nodes.map(node => [node.id, 0]));
+	for (const edge of scene.edges) {
+		if (!nodeById.has(edge.from) || !nodeById.has(edge.to)) continue;
+		outgoing.set(edge.from, [...(outgoing.get(edge.from) ?? []), edge.to]);
+		indegree.set(edge.to, (indegree.get(edge.to) ?? 0) + 1);
+	}
+	const priority: Record<string, number> = { module: 0, class: 1, function: 2, import: 3, parameter: 4, variable: 5, loop: 6, call: 7, external: 8 };
+	const sortNodes = (a: CanvasNode, b: CanvasNode): number => {
+		const ka = priority[a.card?.kind ?? 'variable'] ?? 9;
+		const kb = priority[b.card?.kind ?? 'variable'] ?? 9;
+		return ka - kb || a.label.localeCompare(b.label);
+	};
+	const roots = scene.nodes.filter(node => (indegree.get(node.id) ?? 0) === 0).sort(sortNodes);
+	const queue: Array<{ id: string; level: number }> = (roots.length > 0 ? roots : scene.nodes.slice(0, 1)).map(node => ({ id: node.id, level: 0 }));
+	const levels = new Map<string, number>();
+	const visited = new Set<string>();
+	while (queue.length > 0) {
+		const item = queue.shift()!;
+		if (visited.has(item.id)) continue;
+		visited.add(item.id);
+		levels.set(item.id, item.level);
+		for (const child of outgoing.get(item.id) ?? []) {
+			if (!visited.has(child)) queue.push({ id: child, level: item.level + 1 });
+		}
+	}
+	for (const node of scene.nodes) {
+		if (!levels.has(node.id)) levels.set(node.id, 0);
+	}
+	const columns = new Map<number, CanvasNode[]>();
+	for (const node of scene.nodes) {
+		const level = levels.get(node.id) ?? 0;
+		columns.set(level, [...(columns.get(level) ?? []), node]);
+	}
+	for (const [level, nodes] of [...columns.entries()].sort((a, b) => a[0] - b[0])) {
+		let y = 36;
+		const ordered = [...nodes].sort(sortNodes);
+		for (const node of ordered) {
+			const stored = layout.positions[node.id];
+			positions[node.id] = stored ?? { x: 32 + level * 330, y };
+			y += sizeOf(node).height + 34;
+		}
 	}
 	return positions;
 }

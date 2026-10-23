@@ -12,9 +12,10 @@ import type {
 	StackFrameSnapshot,
 	TraceSnapshot
 } from '@core/domain/contracts';
-import type { AppInfo, ConsoleLine, FileEntry, HostClient, LanguagePackage } from '@/host/types';
+import type { AppInfo, ConsoleLine, FileEntry, HostClient, LanguagePackage, StaticAnalysis, WorkbenchInfo } from '@/host/types';
 
 export type StudioMode = 'manual' | 'debug';
+const MAX_SNAPSHOTS = 500;
 
 export interface Breakpoint {
 	readonly id: string;
@@ -41,6 +42,12 @@ export interface StudioState {
 	readonly editorText: string;
 	readonly savedText: string;
 	readonly mode: StudioMode;
+	readonly canvasView: 'static' | 'runtime';
+	readonly workbench?: WorkbenchInfo;
+	readonly staticScene: SceneDto;
+	readonly staticCoverage: Coverage;
+	readonly staticStats?: StaticAnalysis['stats'];
+	readonly staticError?: string;
 	readonly manualBoard: ManualBoard;
 	readonly manualStepIndex: number;
 	readonly selectedNodeId?: string;
@@ -49,6 +56,7 @@ export interface StudioState {
 	readonly selectedThreadId?: string;
 	readonly selectedFrameId?: string;
 	readonly snapshots: readonly TraceSnapshot[];
+	readonly droppedSnapshots: number;
 	readonly snapshotIndex: number;
 	readonly running: boolean;
 	readonly breakpoints: readonly Breakpoint[];
@@ -91,10 +99,14 @@ export function initialState(): StudioState {
 		editorText: '',
 		savedText: '',
 		mode: 'debug',
+		canvasView: 'static',
+		staticScene: EMPTY_SCENE,
+		staticCoverage: { state: 'unknown', knownMissing: ['No static analysis.'] },
 		manualBoard: emptyManualBoard(),
 		manualStepIndex: -1,
 		debug: initialDebugModelState,
 		snapshots: [],
+		droppedSnapshots: 0,
 		snapshotIndex: -1,
 		running: false,
 		breakpoints: [],
@@ -148,8 +160,12 @@ export class StudioStore {
 				],
 				status: app.mode === 'demo' ? '演示宿主已连接' : '桌面宿主已连接 · 点击真实运行'
 			});
-			if (app.mode === 'demo') await this.startDebug();
-			else this.refreshScene();
+			if (app.mode === 'demo') {
+				await this.startDebug();
+			} else {
+				await this.analyze(activeFile);
+				this.refreshScene();
+			}
 		} catch (error) {
 			this.set({
 				ready: true,
@@ -167,7 +183,7 @@ export class StudioStore {
 
 	async startDebug(): Promise<void> {
 		if (this.state.running) return;
-		this.set({ mode: 'debug', running: true, snapshots: [], snapshotIndex: -1, status: '正在启动演示会话…' });
+		this.set({ mode: 'debug', running: true, snapshots: [], droppedSnapshots: 0, snapshotIndex: -1, status: '正在启动演示会话…' });
 		try {
 			const session = await this.host.startDebug();
 			this.set({ session: { ...session, scripted: session.scripted ?? true }, running: true, status: '演示会话运行中' });
@@ -200,8 +216,10 @@ export class StudioStore {
 			.map(item => item.line);
 		this.set({
 			mode: 'debug',
+			canvasView: 'static',
 			running: true,
 			snapshots: [],
+			droppedSnapshots: 0,
 			snapshotIndex: -1,
 			selectedFrameId: undefined,
 			status: '等待原生确认…'
@@ -261,12 +279,12 @@ export class StudioStore {
 
 	selectSnapshot(index: number): void {
 		const clamped = Math.max(-1, Math.min(index, this.state.snapshots.length - 1));
-		this.set({ snapshotIndex: clamped, mode: 'debug' });
+		this.set({ snapshotIndex: clamped, mode: 'debug', canvasView: 'runtime' });
 		this.refreshScene();
 	}
 
 	backToLive(): void {
-		this.set({ snapshotIndex: -1 });
+		this.set({ snapshotIndex: -1, canvasView: 'runtime' });
 		this.refreshScene();
 	}
 
@@ -288,9 +306,73 @@ export class StudioStore {
 			if (this.state.editorText !== this.state.savedText) await this.saveFile();
 			const text = await this.host.readFile(path);
 			this.set({ activeFile: path, editorText: text, savedText: text, status: `已打开 ${path}` });
+			await this.analyze(path);
 		} catch (error) {
 			this.set({ status: `打开失败：${errorMessage(error)}` });
 		}
+	}
+
+	async createWorkbench(): Promise<void> {
+		const source = this.state.workbench?.sourceFile ?? this.state.activeFile;
+		try {
+			const info = await this.host.createWorkbench(source);
+			this.set({
+				workbench: info,
+				activeFile: info.path,
+				editorText: info.content,
+				savedText: info.content,
+				breakpoints: [],
+				mode: 'debug',
+				canvasView: 'static',
+				status: `工作台已创建：${info.path}`
+			});
+			await this.analyze(info.path);
+		} catch (error) {
+			this.set({ status: `工作台创建失败：${errorMessage(error)}` });
+		}
+	}
+
+	async openWorkbench(path: string): Promise<void> {
+		try {
+			const info = await this.host.readWorkbench(path);
+			this.set({
+				workbench: info,
+				activeFile: info.path,
+				editorText: info.content,
+				savedText: info.content,
+				mode: 'debug',
+				canvasView: 'static',
+				status: `已打开工作台：${info.path}`
+			});
+			await this.analyze(info.path);
+		} catch (error) {
+			this.set({ status: `工作台打开失败：${errorMessage(error)}` });
+		}
+	}
+
+	async analyze(path: string): Promise<void> {
+		if (!path) return;
+		try {
+			const result = await this.host.analyzeFile(path);
+			if (result.error) {
+				this.set({ staticError: result.error, status: `静态分析：${result.error}` });
+				return;
+			}
+			this.set({
+				staticScene: result.scene,
+				staticCoverage: result.coverage,
+				staticStats: result.stats,
+				staticError: undefined
+			});
+			if (this.state.canvasView === 'static' || this.state.mode === 'manual') this.refreshScene();
+		} catch (error) {
+			this.set({ staticError: errorMessage(error), status: `静态分析失败：${errorMessage(error)}` });
+		}
+	}
+
+	setCanvasView(view: 'static' | 'runtime'): void {
+		this.set({ canvasView: view });
+		this.refreshScene();
 	}
 
 	updateEditorText(text: string): void {
@@ -300,8 +382,14 @@ export class StudioStore {
 	async saveFile(): Promise<void> {
 		if (!this.state.activeFile) return;
 		try {
-			await this.host.writeFile(this.state.activeFile, this.state.editorText);
-			this.set({ savedText: this.state.editorText, status: `已保存 ${this.state.activeFile}` });
+			const path = this.state.activeFile;
+			if (path.replace(/\\/g, '/').startsWith('.thinking-canvas/workbench/')) {
+				await this.host.writeWorkbench(path, this.state.editorText);
+			} else {
+				await this.host.writeFile(path, this.state.editorText);
+			}
+			this.set({ savedText: this.state.editorText, status: `已保存 ${path}` });
+			await this.analyze(path);
 		} catch (error) {
 			this.set({ status: `保存失败：${errorMessage(error)}` });
 		}
@@ -423,13 +511,18 @@ export class StudioStore {
 			patch.status = '会话已结束';
 		}
 		if (event.type === 'framesLoaded') {
+			patch.canvasView = 'runtime';
 			const selected = event.frames.find(frame => frame.id === before.selectedFrameId) ?? event.frames[0];
 			patch.selectedThreadId = event.threadId;
 			patch.selectedFrameId = selected?.id;
 			patch.running = false;
 			const snapshot = this.snapshotFrom(debug, event.label, event.coverage);
 			if (snapshot) {
-				patch.snapshots = [...before.snapshots, snapshot];
+				const appended = [...before.snapshots, snapshot];
+				const overflow = Math.max(0, appended.length - MAX_SNAPSHOTS);
+				if (overflow > 0) appended.splice(0, overflow);
+				patch.snapshots = appended;
+				patch.droppedSnapshots = before.droppedSnapshots + overflow;
 				patch.snapshotIndex = -1;
 				patch.status = `停点 ${snapshot.sequence} · ${snapshot.label}`;
 			}
@@ -443,7 +536,7 @@ export class StudioStore {
 	private snapshotFrom(model: DebugModelState, label: string | undefined, coverage?: Coverage): TraceSnapshot | undefined {
 		if (!model.runId || !model.sessionId) return undefined;
 		const frames = Object.values(model.threads).flatMap(thread => thread.frames);
-		const sequence = this.state.snapshots.length + 1;
+		const sequence = this.state.snapshots.length + this.state.droppedSnapshots + 1;
 		return createTraceSnapshot({
 			id: `trace-${model.runId}-${sequence}`,
 			sequence,
@@ -470,6 +563,14 @@ export class StudioStore {
 				scene,
 				coverage: { state: 'complete', knownMissing: [] },
 				diff: diffScenes(previous, scene)
+			});
+			return;
+		}
+		if (state.canvasView === 'static') {
+			this.set({
+				scene: state.staticScene,
+				coverage: state.staticCoverage,
+				diff: EMPTY_SCENE_DIFF
 			});
 			return;
 		}

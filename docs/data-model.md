@@ -107,8 +107,10 @@ workspace/
 | `languages.list` | 语言包 manifest |
 | `workspace.list/readText/writeText` | 文件列表与文本读写 |
 | `boards.load/save` | 手绘画板 |
+| `workbench.create/info/read/write` | 创建/读取/保存函数工作台 |
+| `analysis.analyze` | 分析工作台/源文件并返回静态 Scene |
 | `debug.start` | 启动脚本演示 |
-| `debug.startReal` | 用单次 approval receipt 启动真实 debugpy |
+| `debug.startReal` | 用单次 approval receipt 启动真实 debugpy；可运行工作台 |
 | `debug.stop/continue/step/pause` | 会话控制 |
 | `debug.stackFrames/scopes/variables` | 缓存/懒加载读取 |
 

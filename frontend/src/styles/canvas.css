@@ -359,3 +359,126 @@
 	font-size: 10px;
 	color: var(--faint);
 }
+
+.scene-edge-label {
+	font-family: var(--font-mono);
+	font-size: 9px;
+	fill: var(--muted);
+	text-anchor: middle;
+	paint-order: stroke;
+	stroke: var(--paper);
+	stroke-width: 4px;
+	stroke-linejoin: round;
+	pointer-events: none;
+}
+
+.scene-edge-defines,
+.scene-edge-parameter,
+.scene-edge-method,
+.scene-edge-field,
+.scene-edge-contains {
+	opacity: 0.35;
+}
+
+.scene-edge-calls,
+.scene-edge-targets {
+	stroke: var(--accent-bright);
+	opacity: 0.72;
+}
+
+.scene-edge-returns,
+.scene-edge-flows,
+.scene-edge-produces {
+	stroke: var(--amber);
+	opacity: 0.72;
+	stroke-dasharray: 4 3;
+}
+
+.scene-edge-inherits,
+.scene-edge-imports,
+.scene-edge-uses {
+	stroke: var(--violet);
+	opacity: 0.62;
+}
+
+.scene-edge-iterates {
+	stroke: var(--green);
+	opacity: 0.65;
+	stroke-dasharray: 3 3;
+}
+
+.canvas-card.is-static {
+	border-style: dashed;
+	background: linear-gradient(180deg, var(--surface) 0%, var(--surface-soft) 100%);
+}
+
+.canvas-card.is-static .canvas-card-head {
+	background: transparent;
+}
+
+.canvas-card-static .canvas-card-type::after {
+	content: ' · static';
+	color: var(--faint);
+}
+
+.canvas-module,
+.canvas-import,
+.canvas-external,
+.canvas-loop {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	color: var(--accent-ink);
+}
+
+.canvas-module small,
+.canvas-import small,
+.canvas-external small,
+.canvas-loop small {
+	font-family: var(--font-ui);
+	font-size: 9px;
+	color: var(--faint);
+}
+
+.canvas-parameter {
+	display: flex;
+	align-items: baseline;
+	gap: 7px;
+	font-family: var(--font-mono);
+	font-size: 11px;
+}
+
+.canvas-parameter em {
+	font-style: normal;
+	font-size: 9px;
+	color: var(--violet);
+}
+
+.canvas-parameter small {
+	font-size: 9px;
+	color: var(--faint);
+}
+
+.canvas-class {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	font-size: 10px;
+}
+
+.canvas-call {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+.canvas-call-args {
+	font-family: var(--font-mono);
+	font-size: 9px;
+	color: var(--muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

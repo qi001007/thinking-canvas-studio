@@ -6,5 +6,7 @@
 - [x] HostClient：DemoHost 与 WebSocketHost；桌面 bridge_info 等待；`__studioBridge` 仅测试注入。
 - [x] 手绘模式隐藏调试面板/控制台，检查器只显示手绘对象。
 - [x] 桌面“真实运行”按钮：原生确认 → WS `debug.startReal` → 真实调试标记/变量/画布。
+- [x] 函数工作台入口、静态度量/结构视图、结构/运行切换；保存后画布更新。
+- [x] 帧轴时间线（滑块、500 帧上限）。
 - [ ] 真实窗口 IME/DPI/快捷键；运行中改断点；LSP；完整手绘笔迹/连线/文本。
-- [ ] 真实 adapter 的懒加载变量树与 Watch/REPL。
+- [ ] 真实 adapter 的懒加载变量树与 Watch/REPL。- [x] 静态结构 BFS 布局/边标签/最小 68% 缩放；静态视图隐藏空检查器。

@@ -49,6 +49,22 @@ export class DemoHostClient implements HostClient {
 		return [...demoFiles];
 	}
 
+	async createWorkbench(): Promise<never> {
+		throw new Error('函数工作台需要桌面 Python 宿主。');
+	}
+
+	async readWorkbench(): Promise<never> {
+		throw new Error('函数工作台需要桌面 Python 宿主。');
+	}
+
+	async writeWorkbench(): Promise<never> {
+		throw new Error('函数工作台需要桌面 Python 宿主。');
+	}
+
+	async analyzeFile(): Promise<never> {
+		throw new Error('静态结构分析需要桌面 Python 宿主。');
+	}
+
 	async readFile(path: string): Promise<string> {
 		const content = this.files.get(path);
 		if (content === undefined) throw new Error(`File not found: ${path}`);

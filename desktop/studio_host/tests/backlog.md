@@ -6,5 +6,6 @@
 - [x] `test_debug_service.py`：脚本 DAP 启动/步过/停止；`stopEpoch` 1→3；变量/console；不执行用户代码。
 - [x] `test_bridge_server.py`：错误 token 关闭；认证后 `app.info`；`debug.start/step` 事件流。
 - [x] `test_real_debug_service.py`：真实 debugpy 断点/locals/list/单步/停止清理；`test_windows_supervisor.py`：Job Object 限额 + wall timeout；`test_approval_registry.py`：单次 scope 绑定。
-- [x] 验证命令：`python -m unittest discover -s desktop/studio_host/tests -t desktop -v`，50 项通过。
-- [ ] 原生确认人工点击、IME/DPI、运行中改断点、异常/共享引用；GDB/JS/Java。
+- [x] `test_static_analysis.py`：工作台继承 context、类/字段/调用/循环/returns 图、语法错误不伪造结构、工作台稳定创建/读写。
+- [x] 验证命令：`python -m unittest discover -s desktop/studio_host/tests -t desktop -v`，53 项通过。
+- [ ] 大型图/跨文件/递归/张量静态分析；运行中改断点；GDB/JS/Java；IME/DPI。

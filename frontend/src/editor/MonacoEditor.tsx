@@ -61,6 +61,12 @@ export function MonacoEditor({
 			guides: { bracketPairs: false, indentation: true }
 		});
 		editorRef.current = editor;
+		if (new URLSearchParams(window.location.search).has('test')) {
+			(window as unknown as { __studioEditor?: unknown }).__studioEditor = {
+				setValue: (value: string) => editor.setValue(value),
+				getValue: () => editor.getValue()
+			};
+		}
 		const changeSubscription = editor.onDidChangeModelContent(() => {
 			callbacksRef.current.onChange(editor.getValue());
 		});
@@ -79,6 +85,7 @@ export function MonacoEditor({
 			saveAction.dispose();
 			mouseSubscription.dispose();
 			changeSubscription.dispose();
+			delete (window as unknown as { __studioEditor?: unknown }).__studioEditor;
 			editor.dispose();
 			for (const model of modelsRef.current.values()) model.dispose();
 			modelsRef.current.clear();

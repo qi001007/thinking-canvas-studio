@@ -1,6 +1,6 @@
 # 交接说明
 
-更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy 已接通，其余语言待填。
+更新：2026-10-23。当前是 **可运行底座**；Python 真实 debugpy、函数工作台和 AST 静态结构图已接通，其余语言待填。
 
 ## 先读
 
@@ -36,6 +36,8 @@ desktop/
     host_approval.py   单次、限时、绑定 scope 的审批 receipt
     windows_supervisor.py Job Object 限额 + debugpy 启动/回收
     real_debug_service.py 真实 debugpy attach/采集
+    static_analysis.py Python AST → 静态 Scene
+    workbench.py      干净工作台 + 隐藏继承 context
     socket_transport.py  loopback DAP socket
     workspace.py       安全路径、原子写、boards
     language_packages.py manifest 加载
@@ -54,6 +56,13 @@ docs/
 3. `StudioStore.startDebug` → `debug.start` → `HostService` → `DemoDebugService` → `ScriptedDapAdapter`。
 4. `framesLoaded` → `createTraceSnapshot` → `projectSnapshot` → `SceneCanvas`；Timeline 追加；Inspector 显示变量/栈。
 5. 步过/继续 → `threadResumed`/`threadStopped`/`framesLoaded`，`stopEpoch` 递增，旧句柄失效。
+
+## 工作台/静态图扩展点
+
+- `workbench.py` 只支持 Python；`_template`/`_context_source` 是继承机制的入口。
+- `static_analysis.py` 是启发式结构图；新增语言时按“节点/边契约”提供等价分析器，不要把静态推断写成运行时事实。
+- UI 的“结构/运行”视图在 `StudioStore.canvasView`；静态图使用 `origin: static` 和自动 BFS 布局。
+- 大型图需要聚焦/折叠；当前静态图最低缩放 68%，可平移。
 
 ## 添加其他语言适配器的顺序
 
@@ -84,7 +93,7 @@ UI 改动需启动 Vite 并用真实浏览器/窗口点过；只看 diff 不算�
 
 ## 下一个任务
 
-**真窗口人工验收 + 真实采集增强。** 先让主人实际点一次原生确认框，测 IME/DPI/快捷键/崩溃恢复；再补运行中改断点、嵌套函数/共享引用/循环引用/异常、更多容器与 trace 持久化。之后才接 GDB/js-debug/java-debug/LSP。
+**真窗口人工验收 + 大型静态图/工作台体验。** 先让主人实际点一次原生确认框，测 IME/DPI/快捷键/崩溃恢复；再补运行中改断点、嵌套函数/共享引用/循环引用/异常、更多容器与 trace 持久化。之后才接 GDB/js-debug/java-debug/LSP。
 
 ## 禁止
 

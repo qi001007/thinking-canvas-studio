@@ -15,3 +15,8 @@
 - [x] `real_debug_service.py` + `socket_transport.py`：debugpy attach、断点、locals、list 子项、单步、停止清理。
 - [x] `host_approval.py`：单次 120 秒 receipt；`host_service.py` 把源文件 SHA-256、程序、断点、解释器、cwd、限额绑定到 config digest。
 - [ ] Linux cgroup/rlimit；运行中改断点；更多容器/异常/共享引用；真窗口人工确认。
+
+- [x] `workbench.py`：干净工作台 + 隐藏 context 模块；源文件 import/顶层定义继承；源文件 hash 绑定 receipt。
+- [x] `static_analysis.py`：AST 函数/类/参数/字段/变量/调用/循环/import/继承/returns/flows；预算与语法错误处理。
+- [x] 静态分析/工作台测试；Python 共 53 项通过。
+- [ ] 大型类/递归/张量聚焦折叠；跨文件符号解析；C/C++/Java/TS 分析器。

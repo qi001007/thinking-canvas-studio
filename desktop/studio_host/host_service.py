@@ -24,7 +24,9 @@ from .host_approval import ApprovalRegistry
 from .language_packages import LanguagePackageError, load_language_packages
 from .ports import ExecutionSpec, ResourceLimits
 from .real_debug_service import RealDebugError, RealDebugService
+from .static_analysis import analyze_python
 from .windows_supervisor import SupervisorError, WindowsJobObjectSupervisor
+from .workbench import WorkbenchStore, WORKBENCH_DIR
 from .workspace import WorkspaceError, WorkspaceStore
 
 EventSink = Callable[[dict[str, Any]], Awaitable[None] | None]
@@ -51,9 +53,19 @@ class RpcError(RuntimeError):
 
 
 class HostService:
-    def __init__(self, workspace_root: Path, languages_root: Path, on_event: EventSink, on_console: EventSink) -> None:
+    def __init__(
+        self,
+        workspace_root: Path,
+        languages_root: Path,
+        on_event: EventSink,
+        on_console: EventSink,
+        *,
+        seed_demo: bool = False,
+    ) -> None:
         self._workspace = WorkspaceStore(workspace_root)
-        self._workspace.ensure_demo_files()
+        if seed_demo:
+            self._workspace.ensure_demo_files()
+        self._workbench = WorkbenchStore(self._workspace)
         try:
             self._languages = load_language_packages(languages_root)
         except LanguagePackageError as exc:
@@ -76,6 +88,7 @@ class HostService:
         scope, config, limits, absolute = self._build_scope(program, breakpoints)
         return {
             "program": str(absolute),
+            "contextSource": config.get("contextSource"),
             "interpreter": config["interpreter"],
             "breakpoints": config["breakpoints"],
             "limits": {
@@ -95,6 +108,7 @@ class HostService:
             "approved": True,
             "receiptId": receipt.receipt_id,
             "program": str(absolute),
+            "contextSource": config.get("contextSource"),
             "interpreter": config["interpreter"],
             "breakpoints": config["breakpoints"],
             "limits": {
@@ -115,6 +129,18 @@ class HostService:
             }
         if method == "languages.list":
             return [package.to_dict() for package in self._languages]
+        if method == "workbench.create":
+            return self._workbench.create(_text_param(params, "sourceFile")).to_dict()
+        if method == "workbench.info":
+            return self._workbench.info(_text_param(params, "path")).to_dict()
+        if method == "workbench.read":
+            return {"content": self._workbench.read(_text_param(params, "path"))}
+        if method == "workbench.write":
+            path = _text_param(params, "path")
+            self._workbench.write(path, _text_param(params, "content"))
+            return {}
+        if method == "analysis.analyze":
+            return self._analyze(_text_param(params, "path"))
         if method == "workspace.list":
             return self._workspace.list_files()
         if method == "workspace.readText":
@@ -240,11 +266,28 @@ class HostService:
             return self._demo
         raise RpcError(-32005, "no debug session is active")
 
+    def _analyze(self, path: str) -> dict[str, Any]:
+        if path.replace("\\", "/").startswith(WORKBENCH_DIR + "/"):
+            info = self._workbench.info(path)
+            source_path = self._workbench.source_path(path)
+            source_text = source_path.read_text(encoding="utf-8") if source_path is not None else None
+            return analyze_python(
+                self._workspace.root_path / info.path,
+                info.content,
+                source_path,
+                source_text,
+            )
+        try:
+            absolute = self._workspace.resolve_file(path)
+        except WorkspaceError as exc:
+            raise RpcError(-32602, str(exc)) from exc
+        return analyze_python(absolute, absolute.read_text(encoding="utf-8"), None, None)
+
     def _build_scope(self, program: str, breakpoints: list[int]) -> tuple[GrantScope, dict[str, Any], ResourceLimits, Path]:
         if not isinstance(program, str) or not program.strip():
             raise RpcError(-32602, "program must be a workspace file")
         try:
-            absolute = self._workspace.resolve_file(program)
+            absolute = self._workbench.resolve_program(program)
         except WorkspaceError as exc:
             raise RpcError(-32602, str(exc)) from exc
         version = _debugpy_version()
@@ -258,12 +301,23 @@ class HostService:
         source_bytes = absolute.read_bytes()
         if len(source_bytes) > self._workspace.max_text_bytes:
             raise RpcError(-32602, "program exceeds the text size limit")
+        context_source: Path | None = None
+        context_hash: str | None = None
+        if program.replace("\\", "/").startswith(WORKBENCH_DIR + "/"):
+            context_source = self._workbench.source_path(program)
+            if context_source is not None:
+                context_bytes = context_source.read_bytes()
+                if len(context_bytes) > self._workspace.max_text_bytes:
+                    raise RpcError(-32602, "context source exceeds the text size limit")
+                context_hash = hashlib.sha256(context_bytes).hexdigest()
         config: dict[str, Any] = {
             "program": str(absolute),
             "sourceHash": hashlib.sha256(source_bytes).hexdigest(),
+            "contextSource": str(context_source.relative_to(self._workspace.root_path).as_posix()) if context_source else None,
+            "contextHash": context_hash,
             "args": [],
             "cwd": str(self._workspace.root_path),
-            "interpreter": sys.executable,
+            "interpreter": _detect_interpreter(self._workspace.root_path),
             "breakpoints": lines,
             "limits": {
                 "timeoutSeconds": DEFAULT_LIMITS.timeout_seconds,
@@ -302,3 +356,15 @@ def _debugpy_version() -> str | None:
         return importlib.metadata.version("debugpy")
     except importlib.metadata.PackageNotFoundError:
         return None
+
+
+def _detect_interpreter(workspace_root: Path) -> str:
+    for candidate in (
+        workspace_root / ".venv" / "Scripts" / "python.exe",
+        workspace_root / "venv" / "Scripts" / "python.exe",
+        workspace_root / ".venv" / "bin" / "python",
+        workspace_root / "venv" / "bin" / "python",
+    ):
+        if candidate.is_file():
+            return str(candidate)
+    return sys.executable

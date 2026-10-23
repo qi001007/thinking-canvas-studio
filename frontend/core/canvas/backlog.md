@@ -7,3 +7,4 @@
 - [x] 新增 `diff.ts`：卡片单元格/项/字段差异与 changedValueIds。
 - [x] `createManualStep` 克隆 scene；`createTraceSnapshot` 接受运行时帧并剥离句柄。
 - [x] `projectSnapshot` 生成 list/dict/array/struct/pointer/tensor/stack-frame 卡片。
+- [x] 运行时调用栈 calls 边与 origin=runtime；静态结构图/运行时图可切换。

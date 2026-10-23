@@ -9,6 +9,8 @@ import type {
 	HostClient,
 	LanguagePackage,
 	RealRunRequest,
+	StaticAnalysis,
+	WorkbenchInfo,
 	ThreadStopContext,
 	VariablePage
 } from '@/host/types';
@@ -65,6 +67,22 @@ export class WebSocketHostClient implements HostClient {
 	async readFile(path: string): Promise<string> {
 		const result = await this.request<{ readonly content: string }>('workspace.readText', { path });
 		return result.content;
+	}
+
+	async createWorkbench(sourceFile: string): Promise<WorkbenchInfo> {
+		return this.request<WorkbenchInfo>('workbench.create', { sourceFile });
+	}
+
+	async readWorkbench(path: string): Promise<WorkbenchInfo> {
+		return this.request<WorkbenchInfo>('workbench.info', { path });
+	}
+
+	async writeWorkbench(path: string, content: string): Promise<void> {
+		await this.request('workbench.write', { path, content });
+	}
+
+	async analyzeFile(path: string): Promise<StaticAnalysis> {
+		return this.request<StaticAnalysis>('analysis.analyze', { path });
 	}
 
 	async writeFile(path: string, content: string): Promise<void> {

@@ -5,9 +5,11 @@ interface FileSidebarProps {
 	readonly onOpenFile: (path: string) => void;
 	readonly onMode: (mode: StudioMode) => void;
 	readonly onAddCard: (kind: 'array' | 'list' | 'dict' | 'variable' | 'sticky') => void;
+	readonly onCreateWorkbench: () => void;
+	readonly onOpenWorkbench: (path: string) => void;
 }
 
-export function FileSidebar({ state, onOpenFile, onMode, onAddCard }: FileSidebarProps) {
+export function FileSidebar({ state, onOpenFile, onMode, onAddCard, onCreateWorkbench, onOpenWorkbench }: FileSidebarProps) {
 	return (
 		<aside className="files-pane">
 			<div className="pane-heading">
@@ -40,6 +42,22 @@ export function FileSidebar({ state, onOpenFile, onMode, onAddCard }: FileSideba
 					<small>{state.manualBoard.scene.nodes.length} 个对象 · {state.manualBoard.steps.length} 步</small>
 				</span>
 			</button>
+			<div className="pane-divider" />
+			<div className="pane-heading">
+				<span>函数工作台</span>
+				<button type="button" className="pane-action" onClick={onCreateWorkbench}>新建</button>
+			</div>
+			{state.workbench ? (
+				<button type="button" className={`board-row ${state.activeFile === state.workbench.path ? 'is-active' : ''}`} onClick={() => onOpenWorkbench(state.workbench!.path)}>
+					<span className="workbench-glyph">ƒ</span>
+					<span className="board-copy">
+						<strong>函数工作台</strong>
+						<small>继承自 {state.workbench.sourceFile || '源文件'}</small>
+					</span>
+				</button>
+			) : (
+				<p className="sidebar-note">从当前文件创建一个干净的函数/类。运行时会继承源文件的 import 和顶层定义。</p>
+			)}
 			<div className="pane-divider" />
 			<div className="pane-heading">
 				<span>手绘工具</span>

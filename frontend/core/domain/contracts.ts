@@ -162,23 +162,50 @@ export type CardData =
 	| { readonly kind: 'tensor'; readonly shape: readonly number[]; readonly dtype?: string; readonly preview?: string }
 	| { readonly kind: 'stack-frame'; readonly name: string; readonly source?: string; readonly line?: number }
 	| { readonly kind: 'sticky'; readonly text: string; readonly tone?: 'note' | 'invariant' }
-	| { readonly kind: 'function'; readonly signature: string; readonly input?: string; readonly output?: string; readonly complexity?: string };
+	| { readonly kind: 'function'; readonly signature: string; readonly input?: string; readonly output?: string; readonly complexity?: string; readonly params?: readonly string[]; readonly returns?: string; readonly line?: number }
+	| { readonly kind: 'class'; readonly name: string; readonly bases: readonly string[]; readonly fields?: readonly string[]; readonly methods?: readonly string[]; readonly line?: number }
+	| { readonly kind: 'parameter'; readonly name: string; readonly type?: string; readonly defaultValue?: string }
+	| { readonly kind: 'module'; readonly path: string; readonly source?: string }
+	| { readonly kind: 'import'; readonly module: string; readonly names?: readonly string[] }
+	| { readonly kind: 'call'; readonly target: string; readonly args?: readonly string[]; readonly line?: number }
+	| { readonly kind: 'external'; readonly target: string; readonly category?: string }
+	| { readonly kind: 'loop'; readonly header: string; readonly line?: number };
 
 export interface CanvasNode {
 	readonly id: string;		// Stable layout key.
 	readonly valueId: ValueId;	// Snapshot identity, separate from the stable layout key.
 	readonly label: string;
-	readonly kind: StructureKind | 'stack-frame' | 'manual';
+	readonly kind: StructureKind | 'stack-frame' | 'manual' | 'static';
 	readonly type?: string;
 	readonly metadata?: Readonly<Record<string, MetadataValue>>;
 	readonly card?: CardData;
+	readonly origin?: 'manual' | 'static' | 'runtime';
 }
 
 export interface CanvasEdge {
 	readonly id: string;
 	readonly from: string;
 	readonly to: string;
-	readonly kind: 'contains' | 'points-to' | 'alias';
+	readonly kind:
+		| 'contains'
+		| 'points-to'
+		| 'alias'
+		| 'defines'
+		| 'parameter'
+		| 'flows'
+		| 'calls'
+		| 'targets'
+		| 'returns'
+		| 'inherits'
+		| 'imports'
+		| 'uses'
+		| 'reads'
+		| 'writes'
+		| 'produces'
+		| 'iterates'
+		| 'method'
+		| 'field'
+		| 'nested';
 	readonly label?: string;
 }
 

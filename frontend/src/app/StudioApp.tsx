@@ -42,15 +42,19 @@ export function StudioApp() {
 
 function StudioView({ store }: { readonly store: StudioStore }) {
 	const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
-	const [editorRatio, setEditorRatio] = useState(0.52);
+	const [editorRatio, setEditorRatio] = useState(0.5);
 	const workbenchRef = useRef<HTMLDivElement | null>(null);
 	const splitDragRef = useRef(false);
-	const isHistory = state.mode === 'manual' ? state.manualStepIndex >= 0 : state.snapshotIndex >= 0;
+	const isHistory = state.mode === 'manual' ? state.manualStepIndex >= 0 : state.canvasView === 'runtime' && state.snapshotIndex >= 0;
+	const effectiveEditorRatio = state.mode === 'debug' && state.canvasView === 'static' ? 0.46 : editorRatio;
 	const snapshot = currentSnapshot(state);
 	const historyFrame = snapshot?.frames.find(frame => frame.id === state.selectedFrameId) ?? snapshot?.frames[0];
 	const liveFrame = selectedFrame(state);
-	const currentLine = isHistory ? historyFrame?.line : liveFrame?.line;
+	const currentLine = isHistory ? historyFrame?.line : state.canvasView === 'runtime' ? liveFrame?.line : undefined;
 	const dirty = state.editorText !== state.savedText;
+	const activeLabel = state.activeFile.replace(/\\/g, '/').startsWith('.thinking-canvas/workbench/')
+		? `函数工作台 · ${state.workbench?.sourceFile ?? '源文件'}`
+		: state.activeFile;
 
 	if (!state.ready) return <BootScreen message={state.status} />;
 
@@ -78,14 +82,16 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 					onOpenFile={path => void store.openFile(path)}
 					onMode={setMode}
 					onAddCard={kind => store.addManualCard(kind)}
+					onCreateWorkbench={() => void store.createWorkbench()}
+					onOpenWorkbench={path => void store.openWorkbench(path)}
 				/>
 				<main className="workbench">
 					<div className="workbench-main" ref={workbenchRef}>
-						<section className="editor-pane" style={{ flexBasis: `${editorRatio * 100}%` }}>
+						<section className="editor-pane" style={{ flexBasis: `${effectiveEditorRatio * 100}%` }}>
 							<div className="pane-tabbar">
 								<div className="editor-tab is-active">
 									<span className="tab-language">{languageForPath(state.activeFile)}</span>
-									<span>{state.activeFile || '未打开文件'}</span>
+									<span>{activeLabel || '未打开文件'}</span>
 									{dirty && <span className="dirty-dot" title="有未保存修改" />}
 								</div>
 								<span className="tabbar-hint">{languageForPath(state.activeFile)} · {state.breakpoints.filter(item => item.source === state.activeFile && item.enabled).length} 个断点</span>
@@ -122,14 +128,26 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 							<div className="pane-toolbar">
 								<div className="canvas-title">
 									<span className="canvas-title-icon" aria-hidden="true" />
-									<strong>{state.mode === 'manual' ? '手绘画布' : '运行时画布'}</strong>
-									<span className="canvas-subtitle">{state.scene.nodes.length} 个对象 · {state.scene.edges.length} 条关系</span>
+									<strong>{state.mode === 'manual' ? '手绘画布' : state.canvasView === 'static' ? '静态结构' : '运行时画布'}</strong>
+									<span className="canvas-subtitle">
+										{state.scene.nodes.length} 个对象 · {state.scene.edges.length} 条关系
+										{state.mode === 'debug' && state.canvasView === 'static' && state.staticStats ? ` · ${state.staticStats.functions} 函数 / ${state.staticStats.classes} 类` : ''}
+									</span>
 								</div>
 								<div className="canvas-meta">
+									{state.mode === 'debug' && (
+										<div className="canvas-view-switch">
+											<button type="button" className={state.canvasView === 'static' ? 'is-active' : ''} onClick={() => store.setCanvasView('static')}>结构</button>
+											<button type="button" className={state.canvasView === 'runtime' ? 'is-active' : ''} onClick={() => store.setCanvasView('runtime')} disabled={state.snapshots.length === 0}>运行</button>
+										</div>
+									)}
 									<span className={`coverage-badge is-${state.coverage.state}`}>{state.coverage.state}</span>
-									{state.mode === 'debug' && <span className="canvas-meta-label">只投影结构化值</span>}
+									{state.mode === 'debug' && <span className="canvas-meta-label">{state.canvasView === 'static' ? '保存后更新' : '只投影结构化值'}</span>}
 								</div>
 							</div>
+							{state.staticError && state.mode === 'debug' && state.canvasView === 'static' && (
+								<div className="analysis-error">静态分析：{state.staticError}</div>
+							)}
 							{isHistory && (
 								<div className="history-banner">
 									<span>只读回看 · {state.mode === 'manual' ? `第 ${state.manualStepIndex + 1} 步` : snapshot?.label ?? '历史停点'}</span>
@@ -158,13 +176,15 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 						onRecordStep={() => store.recordManualStep()}
 					/>
 				</main>
-				<Inspector
-					state={state}
-					onSelectFrame={(threadId, frameId) => store.selectFrame(threadId, frameId)}
-					onToggleBreakpoint={(source, line) => store.toggleBreakpoint(source, line)}
-					onRemoveBreakpoint={id => store.removeBreakpoint(id)}
-					onDeleteNode={id => store.deleteManualNode(id)}
-				/>
+				{!(state.mode === 'debug' && state.canvasView === 'static') && (
+					<Inspector
+						state={state}
+						onSelectFrame={(threadId, frameId) => store.selectFrame(threadId, frameId)}
+						onToggleBreakpoint={(source, line) => store.toggleBreakpoint(source, line)}
+						onRemoveBreakpoint={id => store.removeBreakpoint(id)}
+						onDeleteNode={id => store.deleteManualNode(id)}
+					/>
+				)}
 			</div>
 			<footer className="statusbar">
 				{state.mode === 'manual' ? (
