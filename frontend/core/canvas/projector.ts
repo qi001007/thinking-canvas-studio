@@ -159,7 +159,7 @@ function layoutKey(path: readonly (string | number)[]): string {
 	return `layout:${JSON.stringify(path)}`;
 }
 
-function cardFromValue(value: PersistedValue | ValueSnapshot): CardData {
+export function cardFromValue(value: PersistedValue | ValueSnapshot): CardData {
 	const shape = tensorShape(value.tensorMetadata);
 	const total = value.childCount ?? (value.hasMore ? undefined : value.children.length);
 	const overflowFor = (shown: number) => {

@@ -168,7 +168,7 @@ export type CardData =
 	| { readonly kind: 'sticky'; readonly text: string; readonly tone?: 'note' | 'invariant' }
 	| { readonly kind: 'function'; readonly signature: string; readonly input?: string; readonly output?: string; readonly complexity?: string; readonly params?: readonly string[]; readonly returns?: string; readonly line?: number }
 	| { readonly kind: 'class'; readonly name: string; readonly bases: readonly string[]; readonly fields?: readonly string[]; readonly methods?: readonly string[]; readonly line?: number }
-	| { readonly kind: 'parameter'; readonly name: string; readonly type?: string; readonly defaultValue?: string }
+	| { readonly kind: 'parameter'; readonly name: string; readonly type?: string; readonly defaultValue?: string; readonly value?: string }
 	| { readonly kind: 'module'; readonly path: string; readonly source?: string }
 	| { readonly kind: 'import'; readonly module: string; readonly names?: readonly string[] }
 	| { readonly kind: 'call'; readonly target: string; readonly args?: readonly string[]; readonly line?: number }

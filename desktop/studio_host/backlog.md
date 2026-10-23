@@ -26,3 +26,4 @@
 - [x] `RealDebugService(auto_record)`：自动逐行断点/自动 continue/500 帧上限；自动记录集成测试。
 - [x] P0a：`debug.variablesPage` 变量分页（10 万项 fixture）、`debug.evaluate` Watch/REPL（停点代际校验）、`allowEvaluate` 写入 config digest 与原生确认、暂停按钮接入。
 - [ ] P0b：条件/日志/异常断点、setVariable、重启、线程/栈分页、完整能力矩阵。
+- [x] `graph_views.default_focus` 跳过 `__main__ · 测试入口`，静态/运行时默认聚焦真正的用户函数（带参数标签）。

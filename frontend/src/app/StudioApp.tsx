@@ -187,6 +187,7 @@ function StudioView({ store }: { readonly store: StudioStore }) {
 								scene={state.scene}
 								mode={state.mode}
 								graphView={state.graphView}
+								focusId={state.graphFocus}
 								layout={state.manualBoard.layout}
 								diff={state.diff}
 								selectedNodeId={state.selectedNodeId}

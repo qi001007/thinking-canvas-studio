@@ -1,17 +1,20 @@
 import { reduceDebugEvent, initialDebugModelState, type DebugEvent, type DebugModelState } from '@core/application/debug-model';
 import { diffScenes, EMPTY_SCENE_DIFF, type SceneDiff } from '@core/canvas/diff';
 import { createManualStep, createTraceSnapshot, type ManualBoard } from '@core/canvas/documents';
-import { projectSnapshot } from '@core/canvas/projector';
+import { cardFromValue, projectSnapshot } from '@core/canvas/projector';
 import type {
 	CapabilitySet,
 	CardData,
 	Coverage,
 	NormalizedDebugSnapshot,
+	PersistedFrame,
+	PersistedValue,
 	RuntimeHandle,
 	SceneDto,
 	SessionSnapshot,
 	StackFrameSnapshot,
-	TraceSnapshot
+	TraceSnapshot,
+	ValueSnapshot
 } from '@core/domain/contracts';
 import type {
 	AppInfo,
@@ -810,6 +813,16 @@ export class StudioStore {
 			return;
 		}
 		if (state.snapshots.length === 0) {
+			const liveFrame = selectedFrame(state) ?? Object.values(state.debug.threads).flatMap(thread => thread.frames).find(frame => frame.name !== '<module>');
+			const overlay = liveFrame ? this.runtimeOverlay(liveFrame) : undefined;
+			if (overlay) {
+				this.set({
+					scene: overlay,
+					coverage: { state: 'partial', reason: '静态结构叠加当前停点值。', knownMissing: ['runtime history'] },
+					diff: EMPTY_SCENE_DIFF
+				});
+				return;
+			}
 			const projection = projectSnapshot(this.normalizedSnapshot(state.debug));
 			this.set({ scene: projection.scene, coverage: projection.coverage, diff: EMPTY_SCENE_DIFF });
 			return;
@@ -819,6 +832,18 @@ export class StudioStore {
 			: state.snapshots.length - 1;
 		const current = state.snapshots[index]!;
 		const previous = index > 0 ? state.snapshots[index - 1] : undefined;
+		const currentFrame = current.frames.find(frame => frame.id === state.selectedFrameId) ?? current.frames[0];
+		const previousFrame = previous?.frames.find(frame => frame.id === state.selectedFrameId) ?? previous?.frames[0];
+		const overlay = currentFrame ? this.runtimeOverlay(currentFrame) : undefined;
+		if (overlay) {
+			const previousOverlay = previousFrame ? this.runtimeOverlay(previousFrame) : undefined;
+			this.set({
+				scene: overlay,
+				coverage: current.coverage,
+				diff: diffScenes(previousOverlay, overlay)
+			});
+			return;
+		}
 		const projection = projectSnapshot(current);
 		const previousScene = previous ? projectSnapshot(previous).scene : undefined;
 		this.set({
@@ -826,6 +851,42 @@ export class StudioStore {
 			coverage: projection.coverage,
 			diff: diffScenes(previousScene, projection.scene)
 		});
+	}
+
+	private runtimeOverlay(frame: PersistedFrame | StackFrameSnapshot): SceneDto | undefined {
+		const staticScene = this.state.staticScene;
+		if (staticScene.nodes.length === 0) return undefined;
+		const values = new Map<string, PersistedValue | ValueSnapshot>();
+		for (const scope of frame.scopes) {
+			for (const value of scope.values) values.set(value.name, value);
+		}
+		let changed = false;
+		const nodes = staticScene.nodes.map(node => {
+			const value = values.get(node.label);
+			if (!value || !node.card) return node;
+			if (node.card.kind === 'parameter') {
+				changed = true;
+				const runtimeCard = cardFromValue(value);
+				const container = ['list', 'set', 'dict', 'array', 'matrix', 'tensor'].includes(runtimeCard.kind);
+				return {
+					...node,
+					origin: 'runtime' as const,
+					metadata: { ...node.metadata, live: true, parameter: true },
+					card: container ? runtimeCard : { ...node.card, value: value.value.slice(0, 120) }
+				};
+			}
+			if (node.card.kind === 'variable') {
+				changed = true;
+				return {
+					...node,
+					origin: 'runtime' as const,
+					metadata: { ...node.metadata, live: true },
+					card: cardFromValue(value)
+				};
+			}
+			return node;
+		});
+		return changed ? { nodes, edges: staticScene.edges } : undefined;
 	}
 
 	private normalizedSnapshot(model: DebugModelState): NormalizedDebugSnapshot {

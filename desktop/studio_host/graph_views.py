@@ -31,7 +31,8 @@ def default_focus(nodes: list[GraphNode], view: str, fallback_id: str | None) ->
         return classes[-1]["id"]
     functions = [
         node for node in users
-        if node.get("card", {}).get("kind") == "function" and node.get("label") != "__main__"
+        if node.get("card", {}).get("kind") == "function"
+        and not str(node.get("label", "")).startswith("__main__")
     ]
     if functions:
         functions.sort(key=lambda node: (node.get("metadata", {}).get("line") or 0, node["id"]))

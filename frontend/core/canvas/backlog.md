@@ -9,3 +9,4 @@
 - [x] `projectSnapshot` 生成 list/dict/array/struct/pointer/tensor/stack-frame 卡片。
 - [x] 运行时调用栈 calls 边与 origin=runtime；静态结构图/运行时图可切换。
 - [x] 长容器投影：卡片最多 20 项/12 字段，`truncated/total` 供画布显示 `…` 与已显示数量；不再平铺 100 项。
+- [x] `cardFromValue` 导出给运行时叠加；参数值卡支持 `value`；`static-frame` 与 `debug-watch` 用同一 Scene/Card 骨架。

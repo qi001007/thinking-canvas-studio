@@ -8,6 +8,7 @@ interface SceneCanvasProps {
 	readonly scene: SceneDto;
 	readonly mode: 'manual' | 'debug';
 	readonly graphView?: 'overview' | 'structure' | 'data';
+	readonly focusId?: string;
 	readonly layout: LayoutViewState;
 	readonly diff: SceneDiff;
 	readonly selectedNodeId?: string;
@@ -26,6 +27,18 @@ interface Viewport {
 	readonly x: number;
 	readonly y: number;
 	readonly zoom: number;
+}
+
+interface FrameRegion {
+	readonly id: string;
+	readonly title: string;
+	readonly subtitle: string;
+	readonly params: readonly string[];
+	readonly hideNodeId?: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
 }
 
 const SURFACE_WIDTH = 2400;
@@ -95,6 +108,7 @@ export function SceneCanvas({
 	scene,
 	mode,
 	graphView = 'overview',
+	focusId,
 	layout,
 	diff,
 	selectedNodeId,
@@ -108,8 +122,27 @@ export function SceneCanvas({
 	const viewportRef = useRef<HTMLDivElement | null>(null);
 	const panRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null);
 	const dragRef = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null);
-	const positions = useMemo(() => layoutPositions(scene, layout, graphView), [scene, layout, graphView]);
+	const positions = useMemo(() => layoutPositions(scene, layout, graphView, focusId), [scene, layout, graphView, focusId]);
 	const sceneKey = useMemo(() => scene.nodes.map(node => node.id).join('|'), [scene.nodes]);
+	const regions = useMemo(() => frameRegions(scene, positions, graphView, focusId), [scene, positions, graphView, focusId]);
+	const hiddenNodeIds = useMemo(() => new Set(regions.map(region => region.hideNodeId).filter((id): id is string => !!id)), [regions]);
+	const visibleEdges = useMemo(() => {
+		const isStatic = scene.nodes.some(node => node.origin === 'static');
+		if (!isStatic) return scene.edges;
+		const frameFocus = focusId
+			?? scene.nodes.find(node => node.card?.kind === 'class')?.id
+			?? scene.nodes.find(node => node.card?.kind === 'function' && !String(node.label).startsWith('__main__'))?.id;
+		const allowed = graphView === 'structure'
+			? new Set(['defines', 'parameter', 'method', 'field', 'inherits', 'iterates', 'calls', 'returns', 'imports', 'uses', 'nested'])
+			: graphView === 'data'
+				? new Set(['parameter', 'field', 'defines', 'flows', 'produces', 'returns', 'iterates', 'reads', 'writes', 'contains'])
+				: new Set(['defines', 'calls', 'inherits', 'imports', 'uses', 'nested', 'method', 'field', 'parameter']);
+		return scene.edges.filter(edge => {
+			if (!allowed.has(edge.kind)) return false;
+			if (edge.from === frameFocus && ['defines', 'parameter', 'method', 'field', 'contains'].includes(edge.kind)) return false;
+			return true;
+		});
+	}, [scene, graphView, focusId]);
 
 	useEffect(() => {
 		const surface = viewportRef.current;
@@ -126,8 +159,8 @@ export function SceneCanvas({
 			setViewport({ x: 24, y: 16, zoom: 1 });
 			return;
 		}
-		setViewport(fitViewport(scene, positions, viewportSize.width, viewportSize.height));
-	}, [sceneKey, mode, graphView, viewportSize.width, viewportSize.height]);
+		setViewport(fitViewport(scene, positions, viewportSize.width, viewportSize.height, regions));
+	}, [sceneKey, mode, graphView, focusId, viewportSize.width, viewportSize.height]);
 
 	const startPan = (event: PointerEvent<HTMLDivElement>) => {
 		if (event.target !== event.currentTarget) return;
@@ -193,7 +226,8 @@ export function SceneCanvas({
 							<path d="M0,0 L9,4.5 L0,9 Z" fill="var(--violet)" />
 						</marker>
 					</defs>
-					{scene.edges.map(edge => {
+					{visibleEdges.map((edge, edgeIndex) => {
+						if (hiddenNodeIds.has(edge.from) || hiddenNodeIds.has(edge.to)) return null;
 						const from = positions[edge.from];
 						const to = positions[edge.to];
 						if (!from || !to) return null;
@@ -203,17 +237,26 @@ export function SceneCanvas({
 						const toSize = toNode ? sizeOf(toNode) : { width: 0, height: 0 };
 						const start = edgeStart(from, fromSize, to);
 						const end = edgeEnd(to, toSize, from);
-						const middle = (start.x + end.x) / 2;
-						const path = `M ${start.x} ${start.y} C ${middle} ${start.y}, ${middle} ${end.y}, ${end.x} ${end.y}`;
+						const outgoing = visibleEdges.filter(item => item.from === edge.from);
+						const incoming = visibleEdges.filter(item => item.to === edge.to);
+						const outIndex = outgoing.findIndex(item => item.id === edge.id);
+						const inIndex = incoming.findIndex(item => item.id === edge.id);
+						const startPort = { x: start.x + (outIndex - (outgoing.length - 1) / 2) * 14, y: start.y };
+						const endPort = { x: end.x + (inIndex - (incoming.length - 1) / 2) * 14, y: end.y };
+						const lane = ((edgeIndex % 7) - 3) * 16;
+						const middle = (startPort.x + endPort.x) / 2 + lane;
+						const labelY = (startPort.y + endPort.y) / 2 - 4 + ((edgeIndex % 3) - 1) * 12;
+						const path = `M ${startPort.x} ${startPort.y} C ${middle} ${startPort.y}, ${middle} ${endPort.y}, ${endPort.x} ${endPort.y}`;
 						return (
 							<g key={edge.id}>
+								<title>{edge.kind}{edge.label ? ` · ${edge.label}` : ''}</title>
 								<path
 									d={path}
 									className={`scene-edge scene-edge-${edge.kind}`}
 									markerEnd={edge.kind === 'contains' || edge.kind === 'defines' ? undefined : edge.kind === 'alias' ? 'url(#arrow-alias)' : 'url(#arrow-accent)'}
 								/>
-								{edge.label && ['calls', 'returns', 'inherits', 'imports'].includes(edge.kind) && (
-									<text className="scene-edge-label" x={(start.x + end.x) / 2} y={(start.y + end.y) / 2 - 4}>
+								{edge.label && ['calls', 'returns', 'inherits', 'imports', 'parameter', 'iterates'].includes(edge.kind) && (
+									<text className="scene-edge-label" x={middle} y={labelY}>
 										{edge.label}
 									</text>
 								)}
@@ -221,7 +264,24 @@ export function SceneCanvas({
 						);
 					})}
 				</svg>
-				{scene.nodes.map(node => {
+				{regions.map(region => (
+					<div
+						className="scene-frame-region"
+						key={region.id}
+						style={{ left: region.x, top: region.y, width: region.width, height: region.height }}
+					>
+						<div className="scene-frame-head">
+							<strong>{region.title}</strong>
+							<span>{region.subtitle}</span>
+							{region.params.length > 0 && (
+								<div className="scene-frame-params">
+									{region.params.map(param => <span key={param}>{param}</span>)}
+								</div>
+							)}
+						</div>
+					</div>
+				))}
+				{scene.nodes.filter(node => !hiddenNodeIds.has(node.id)).map(node => {
 					const position = positions[node.id] ?? { x: 0, y: 0 };
 					const size = sizeOf(node);
 					const changedParts = diff.changedParts.get(node.id);
@@ -264,6 +324,13 @@ export function SceneCanvas({
 					<small>{mode === 'debug' ? '运行后显示结构' : '从左侧添加卡片'}</small>
 				</div>
 			)}
+			{scene.edges.length > 0 && (
+				<div className="canvas-legend" aria-label="关系图例">
+					<span><i className="legend-line is-call" />调用/结构</span>
+					<span><i className="legend-line is-iter" />迭代</span>
+					<span><i className="legend-line is-data" />数据流</span>
+				</div>
+			)}
 			<div className="canvas-zoom">
 				<button type="button" onClick={() => changeZoom(-0.1)} aria-label="缩小">−</button>
 				<span>{Math.round(viewport.zoom * 100)}%</span>
@@ -274,7 +341,7 @@ export function SceneCanvas({
 					onClick={() => {
 						const surface = viewportRef.current;
 						if (!surface) return;
-						setViewport(fitViewport(scene, positions, surface.clientWidth, surface.clientHeight));
+						setViewport(fitViewport(scene, positions, surface.clientWidth, surface.clientHeight, regions));
 					}}
 				>适配</button>
 			</div>
@@ -392,7 +459,7 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 				<div className="canvas-parameter">
 					<span>{card.name}</span>
 					{card.type && <em>{card.type}</em>}
-					{card.defaultValue && <small>= {card.defaultValue}</small>}
+					{card.value !== undefined ? <small>{card.value}</small> : card.defaultValue && <small>= {card.defaultValue}</small>}
 				</div>
 			);
 		case 'import':
@@ -428,10 +495,127 @@ function CardBody({ node, changedParts }: { readonly node: CanvasNode; readonly 
 	}
 }
 
-function layoutPositions(scene: SceneDto, layout: LayoutViewState, graphView: 'overview' | 'structure' | 'data'): Record<string, Point> {
+function frameRegions(
+	scene: SceneDto,
+	positions: Record<string, Point>,
+	graphView: 'overview' | 'structure' | 'data',
+	focusId: string | undefined
+): FrameRegion[] {
+	if (scene.nodes.some(node => node.kind === 'stack-frame')) {
+		const byId = new Map(scene.nodes.map(node => [node.id, node]));
+		const frames = scene.nodes.filter(node => node.kind === 'stack-frame');
+		const regions: FrameRegion[] = [];
+		for (const frame of frames) {
+			const included = new Set<string>();
+			const queue = [frame.id];
+			while (queue.length > 0) {
+				const current = queue.pop()!;
+				if (included.has(current)) continue;
+				included.add(current);
+				for (const edge of scene.edges) {
+					if ((edge.from === current || edge.to === current) && ['contains', 'points-to', 'alias'].includes(edge.kind)) {
+						const next = edge.from === current ? edge.to : edge.from;
+						if (byId.has(next) && !included.has(next)) queue.push(next);
+					}
+				}
+			}
+			let minY = Number.POSITIVE_INFINITY;
+			let maxY = 0;
+			let minX = Number.POSITIVE_INFINITY;
+			let maxX = 0;
+			for (const id of included) {
+				const node = byId.get(id);
+				const position = positions[id];
+				if (!node || !position) continue;
+				const size = sizeOf(node);
+				minX = Math.min(minX, position.x);
+				minY = Math.min(minY, position.y);
+				maxX = Math.max(maxX, position.x + size.width);
+				maxY = Math.max(maxY, position.y + size.height);
+			}
+			if (!Number.isFinite(minX) || !Number.isFinite(minY)) continue;
+			const card = frame.card?.kind === 'stack-frame' ? frame.card : undefined;
+			regions.push({
+				id: `frame:${frame.id}`,
+				title: frame.label,
+				subtitle: card ? `${shortSource(card.source)}:${card.line ?? '—'}` : '当前栈帧',
+				params: [],
+				hideNodeId: frame.id,
+				x: minX - 24,
+				y: frame.kind === 'stack-frame' ? positions[frame.id]?.y ?? minY : minY - 46,
+				width: maxX - minX + 48,
+				height: maxY - (positions[frame.id]?.y ?? minY) + 26
+			});
+		}
+		return regions;
+	}
+	const overlay = scene.nodes.some(node => node.origin === 'runtime') && scene.nodes.some(node => node.origin === 'static');
+	if (!scene.nodes.some(node => node.origin === 'static') || (graphView !== 'structure' && graphView !== 'data' && !overlay)) return [];
+	const focus = scene.nodes.find(node => node.id === focusId)
+		?? scene.nodes.find(node => node.card?.kind === 'class')
+		?? scene.nodes.find(node => node.card?.kind === 'function');
+	if (!focus || (focus.card?.kind !== 'class' && focus.card?.kind !== 'function')) return [];
+	const byId = new Map(scene.nodes.map(node => [node.id, node]));
+	const internal = new Set(['parameter', 'defines', 'contains', 'writes', 'reads', 'produces', 'flows', 'returns', 'iterates', 'nested', 'field', 'method']);
+	const included = new Set([focus.id]);
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const edge of scene.edges) {
+			if (!internal.has(edge.kind)) continue;
+			if (included.has(edge.from) && byId.has(edge.to) && !included.has(edge.to)) {
+				included.add(edge.to);
+				changed = true;
+			}
+			if (included.has(edge.to) && byId.has(edge.from) && !included.has(edge.from)) {
+				included.add(edge.from);
+				changed = true;
+			}
+		}
+	}
+	const hideFocus = focus.card?.kind === 'function' || focus.card?.kind === 'class';
+	if (hideFocus) included.delete(focus.id);
+	let minX = Number.POSITIVE_INFINITY;
+	let minY = Number.POSITIVE_INFINITY;
+	let maxX = 0;
+	let maxY = 0;
+	for (const id of included) {
+		const node = byId.get(id);
+		const position = positions[id];
+		if (!node || !position) continue;
+		const size = sizeOf(node);
+		minX = Math.min(minX, position.x);
+		minY = Math.min(minY, position.y);
+		maxX = Math.max(maxX, position.x + size.width);
+		maxY = Math.max(maxY, position.y + size.height);
+	}
+	if (!Number.isFinite(minX) || !Number.isFinite(minY)) return [];
+	const padding = 28;
+	const header = 46;
+	const params = focus.card.kind === 'function' ? focus.card.params ?? [] : focus.card.bases;
+	const subtitle = focus.card.kind === 'function'
+		? focus.card.signature
+		: focus.card.kind === 'class' ? `类${focus.card.bases.length > 0 ? ` · 继承 ${focus.card.bases.join(', ')}` : ''}` : '';
+	return [{
+		id: `frame:${focus.id}`,
+		title: focus.label,
+		subtitle,
+		params,
+		hideNodeId: hideFocus ? focus.id : undefined,
+		x: minX - padding,
+		y: Math.max(0, minY - header - 14),
+		width: maxX - minX + padding * 2,
+		height: maxY - minY + header + padding + 14
+	}];
+}
+
+function layoutPositions(scene: SceneDto, layout: LayoutViewState, graphView: 'overview' | 'structure' | 'data', focusId: string | undefined): Record<string, Point> {
 	const positions: Record<string, Point> = {};
 	if (scene.nodes.some(node => node.origin === 'static')) {
-		return staticGraphPositions(scene, layout, graphView);
+		return staticGraphPositions(scene, layout, graphView, focusId);
+	}
+	if (scene.nodes.some(node => node.kind === 'stack-frame')) {
+		return runtimeFramePositions(scene);
 	}
 	let frameIndex = 0;
 	let valueIndex = 0;
@@ -452,10 +636,80 @@ function layoutPositions(scene: SceneDto, layout: LayoutViewState, graphView: 'o
 	return positions;
 }
 
-function staticGraphPositions(scene: SceneDto, layout: LayoutViewState, graphView: 'overview' | 'structure' | 'data'): Record<string, Point> {
+function runtimeFramePositions(scene: SceneDto): Record<string, Point> {
+	const positions: Record<string, Point> = {};
+	const frames = scene.nodes.filter(node => node.kind === 'stack-frame');
+	const byId = new Map(scene.nodes.map(node => [node.id, node]));
+	const assigned = new Set<string>();
+	const memberIds = new Map<string, string[]>();
+	for (const frame of frames) {
+		const ids: string[] = [];
+		const queue = [frame.id];
+		const seen = new Set<string>();
+		while (queue.length > 0) {
+			const current = queue.pop()!;
+			if (seen.has(current)) continue;
+			seen.add(current);
+			if (current !== frame.id) ids.push(current);
+			for (const edge of scene.edges) {
+				if ((edge.from === current || edge.to === current) && ['contains', 'points-to', 'alias'].includes(edge.kind)) {
+					const next = edge.from === current ? edge.to : edge.from;
+					if (byId.has(next) && !seen.has(next)) queue.push(next);
+				}
+			}
+		}
+		memberIds.set(frame.id, ids);
+	}
+	let top = 56;
+	for (const frame of frames) {
+		const members = (memberIds.get(frame.id) ?? []).filter(id => !assigned.has(id)).map(id => byId.get(id)!).filter(Boolean);
+		members.forEach(node => assigned.add(node.id));
+		const columns = members.length > 4 ? 2 : Math.max(1, Math.min(2, members.length));
+		const rows = Math.ceil(members.length / columns);
+		const columnWidths = Array.from({ length: columns }, () => 0);
+		rows && members.forEach((node, index) => {
+			const column = index % columns;
+			columnWidths[column] = Math.max(columnWidths[column] ?? 0, sizeOf(node).width);
+		});
+		const rowHeights = Array.from({ length: rows }, (_, row) => {
+			let height = 0;
+			for (let column = 0; column < columns; column++) {
+				const node = members[row * columns + column];
+				if (node) height = Math.max(height, sizeOf(node).height);
+			}
+			return height;
+		});
+		const header = 46;
+		const padding = 22;
+		const gap = 18;
+		const width = padding * 2 + columnWidths.reduce((total, value) => total + value, 0) + gap * Math.max(0, columns - 1);
+		const height = header + padding * 2 + rowHeights.reduce((total, value) => total + value, 0) + gap * Math.max(0, rows - 1);
+		positions[frame.id] = { x: 40, y: top };
+		let cursorY = top + header + padding;
+		for (let row = 0; row < rows; row++) {
+			let cursorX = 40 + padding;
+			for (let column = 0; column < columns; column++) {
+				const node = members[row * columns + column];
+				if (node) positions[node.id] = { x: cursorX, y: cursorY };
+				cursorX += (columnWidths[column] ?? 0) + gap;
+			}
+			cursorY += (rowHeights[row] ?? 0) + gap;
+		}
+		top += Math.max(110, height) + 60;
+	}
+	for (const node of scene.nodes) {
+		if (!positions[node.id]) positions[node.id] = { x: 40, y: top };
+	}
+	return positions;
+}
+
+function staticGraphPositions(scene: SceneDto, layout: LayoutViewState, graphView: 'overview' | 'structure' | 'data', focusId: string | undefined): Record<string, Point> {
 	const positions: Record<string, Point> = {};
 	if (scene.nodes.length === 0) return positions;
-	if (graphView === 'structure' || graphView === 'data') {
+	const overlay = scene.nodes.some(node => node.origin === 'runtime') && scene.nodes.some(node => node.origin === 'static');
+	if (graphView === 'structure' || graphView === 'data' || overlay) {
+		const functionLayout = functionMemberGrid(scene, positions, focusId);
+		if (functionLayout) return positions;
 		const memberLayout = classMemberGrid(scene, positions);
 		if (memberLayout) return positions;
 	}
@@ -463,10 +717,10 @@ function staticGraphPositions(scene: SceneDto, layout: LayoutViewState, graphVie
 	graph.setGraph({
 		rankdir: 'TB',
 		align: 'UL',
-		nodesep: 46,
-		ranksep: 54,
-		marginx: 24,
-		marginy: 24,
+		nodesep: 72,
+		ranksep: 96,
+		marginx: 40,
+		marginy: graphView === 'overview' ? 32 : 90,
 		ranker: 'network-simplex'
 	});
 	graph.setDefaultEdgeLabel(() => ({}));
@@ -514,9 +768,53 @@ function compactList(items: readonly string[], limit = 8): string {
 }
 
 function sizeOf(node: CanvasNode): { width: number; height: number } {
-	const kind = node.card?.kind ?? 'variable';
+	const card = node.card;
+	const kind = card?.kind ?? 'variable';
+	if (node.origin === 'static') {
+		const text = card && (card.kind === 'variable' || card.kind === 'text' || card.kind === 'node')
+			? card.value
+			: card?.kind === 'function' ? card.signature
+				: card?.kind === 'loop' ? card.header
+					: card?.kind === 'class' ? `${card.name}(${card.bases.join(', ')})`
+						: node.label;
+		if (card && ['variable', 'text', 'node', 'function', 'loop', 'class'].includes(card.kind)) {
+			const width = Math.max(220, Math.min(560, 120 + text.length * 7));
+			const charsPerLine = Math.max(1, Math.floor((width - 36) / 7));
+			const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
+			const baseHeight = card.kind === 'function' ? 150 : card.kind === 'class' ? 170 : card.kind === 'loop' ? 100 : 86;
+			return { width, height: Math.min(240, baseHeight + Math.max(0, lines - 1) * 18) };
+		}
+	}
 	const width = node.origin === 'static' ? STATIC_CARD_WIDTH[kind] ?? CARD_WIDTH[kind] : CARD_WIDTH[kind];
 	return { width, height: CARD_HEIGHT[kind] };
+}
+
+function functionMemberGrid(scene: SceneDto, positions: Record<string, Point>, focusId: string | undefined): boolean {
+	const focus = scene.nodes.find(node => node.id === focusId && node.card?.kind === 'function')
+		?? scene.nodes.find(node => node.card?.kind === 'function' && !String(node.label).startsWith('__main__'));
+	if (!focus || focus.card?.kind !== 'function') return false;
+	const members = scene.nodes.filter(node => node.id !== focus.id);
+	if (members.length === 0) return false;
+	positions[focus.id] = { x: 40, y: 90 };
+	const columns = Math.min(3, Math.max(1, members.length));
+	const cellWidth = Math.max(240, ...members.map(node => sizeOf(node).width));
+	const gapX = 32;
+	const gapY = 28;
+	let cursorX = 40;
+	let cursorY = 140;
+	let rowHeight = 0;
+	members.forEach((node, index) => {
+		const column = index % columns;
+		if (column === 0 && index > 0) {
+			cursorY += rowHeight + gapY;
+			cursorX = 40;
+			rowHeight = 0;
+		}
+		positions[node.id] = { x: cursorX, y: cursorY };
+		cursorX += cellWidth + gapX;
+		rowHeight = Math.max(rowHeight, sizeOf(node).height);
+	});
+	return true;
 }
 
 function classMemberGrid(scene: SceneDto, positions: Record<string, Point>): boolean {
@@ -539,14 +837,13 @@ function classMemberGrid(scene: SceneDto, positions: Record<string, Point>): boo
 		.sort((a, b) => kindRank(a) - kindRank(b) || (a.card?.kind === 'function' && b.card?.kind === 'function' ? (a.card.line ?? 0) - (b.card.line ?? 0) : 0));
 	if (members.length < 3) return false;
 	if (scene.edges.some(edge => edge.from !== focus.node.id && (memberIds.has(edge.from) || memberIds.has(edge.to)))) return false;
-	const classSize = sizeOf(focus.node);
 	const columns = Math.min(4, Math.max(3, Math.ceil(Math.sqrt(members.length))));
 	const cellWidth = Math.max(...members.map(node => sizeOf(node).width));
-	const gapX = 28;
-	const gapY = 24;
-	positions[focus.node.id] = { x: 24, y: 24 };
-	let cursorX = 24;
-	let cursorY = 24 + classSize.height + 64;
+	const gapX = 36;
+	const gapY = 30;
+	positions[focus.node.id] = { x: 40, y: 90 };
+	let cursorX = 40;
+	let cursorY = 140;
 	let rowHeight = 0;
 	members.forEach((node, index) => {
 		const column = index % columns;
@@ -560,7 +857,7 @@ function classMemberGrid(scene: SceneDto, positions: Record<string, Point>): boo
 		rowHeight = Math.max(rowHeight, sizeOf(node).height);
 	});
 	for (const node of scene.nodes) {
-		if (!positions[node.id]) positions[node.id] = { x: 24, y: cursorY + rowHeight + gapY };
+		if (!positions[node.id]) positions[node.id] = { x: 40, y: cursorY + rowHeight + gapY };
 	}
 	return true;
 }
@@ -569,7 +866,8 @@ function fitViewport(
 	scene: SceneDto,
 	positions: Record<string, Point>,
 	width: number,
-	height: number
+	height: number,
+	regions: readonly FrameRegion[] = []
 ): Viewport {
 	let minX = Number.POSITIVE_INFINITY;
 	let minY = Number.POSITIVE_INFINITY;
@@ -583,6 +881,12 @@ function fitViewport(
 		minY = Math.min(minY, position.y);
 		maxX = Math.max(maxX, position.x + size.width);
 		maxY = Math.max(maxY, position.y + size.height);
+	}
+	for (const region of regions) {
+		minX = Math.min(minX, region.x);
+		minY = Math.min(minY, region.y);
+		maxX = Math.max(maxX, region.x + region.width);
+		maxY = Math.max(maxY, region.y + region.height);
 	}
 	if (!Number.isFinite(minX) || !Number.isFinite(minY)) return { x: 24, y: 16, zoom: 1 };
 	const contentWidth = Math.max(1, maxX - minX);

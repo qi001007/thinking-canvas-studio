@@ -68,7 +68,8 @@ docs/
 - Watch/REPL 走 `debug.evaluate`；服务按 `sessionId/runId/stopEpoch` 校验句柄。`allowEvaluate` 写入 config digest，原生确认明确告知用户；脚本演示的 `evaluate` 为 false。
 - TS/JS 由 `desktop/analyzers/js_analyzer.mjs` 解析，宿主 `_analyze_js` 调用后再过 `graph_views`；不执行 Node 中的用户代码。
 - UI 的“静态/运行”视图在 `StudioStore.canvasView`，静态图的“总览/结构/数据”在 `graphView`，聚焦节点在 `graphFocus`。
-- 静态布局：`SceneCanvas` 的 dagre TB + 类成员三列网格 + `ResizeObserver` 自动适配；阅读上限在 `graph_views.py`。
+- 静态布局：`SceneCanvas` 的 dagre TB + 类/函数成员网格 + 大方框区域 + `ResizeObserver` 自动适配；阅读上限在 `graph_views.py`。
+- 运行时叠加：`StudioStore.runtimeOverlay` 用当前帧的值覆盖同名静态变量/参数卡；没有匹配值时回退 `projectSnapshot`。循环轨道/赋值证据/张量元数据仍待补。
 - 完整运行由 `RealDebugService(auto_record=True)` 自动逐行断点/continue；回放由 `StudioStore.togglePlayback/setPlaybackSpeed` 驱动，帧上限 500。
 
 ## 添加其他语言适配器的顺序
@@ -100,7 +101,7 @@ UI 改动需启动 Vite 并用真实浏览器/窗口点过；只看 diff 不算�
 
 ## 下一个任务
 
-**调试 P0b + 运行时画布 v2。** P0b：条件/日志/异常断点、改变量、重启、线程/栈分页、暂停的运行中 UI 测试；画布 v2：函数/栈帧大方框、变量卡内含、赋值/迭代边、循环轨道、张量卡、图例/视觉语法。之后再做跨文件符号解析、真窗口 IME/DPI/崩溃恢复，以及 C/C++/Java/GDB/js-debug/java-debug/LSP 逐个 spike。
+**调试 P0b + 画布 v2 余项。** P0b：条件/日志/异常断点、改变量、重启、线程/栈分页、暂停的运行中 UI 测试；画布：逐迭代循环轨道、带证据的赋值/读取边、张量卡、超大框视口虚拟化。之后再做跨文件符号解析、真窗口 IME/DPI/崩溃恢复，以及 C/C++/Java/GDB/js-debug/java-debug/LSP 逐个 spike。
 
 ## 禁止
 

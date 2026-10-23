@@ -6,7 +6,9 @@
 
 ![运行时画布](docs/screenshots/studio-debug.png)
 
-![真实调试 · Watch 与变量分页](docs/screenshots/debug-watch.png)
+![静态函数框 · 参数与循环](docs/screenshots/static-frame.png)
+
+![真实调试 · 同一结构叠加实时值、Watch 与变量分页](docs/screenshots/debug-watch.png)
 
 ## 快速运行
 
